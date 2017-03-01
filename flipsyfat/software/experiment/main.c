@@ -20,8 +20,6 @@ int main(void)
 	puts("Experiment software built "__DATE__" "__TIME__"\n");
 
 	while (1) {
-		uint8_t foo = sdemu_foo_read();
-		printf("reg: %02x\n", foo);
 	}
 
 	return 0;

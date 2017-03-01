@@ -5,7 +5,7 @@ SERIAL := /dev/ttyUSB1
 
 .PHONY: all synth flash term
 
-all: synth flash software
+all: synth flash software term clean
 
 synth:
 	flipsyfat/targets/papilio_pro.py
@@ -24,3 +24,6 @@ software:
 
 term:
 	miniterm.py --raw $(SERIAL) 115200
+
+clean:
+	rm -Rf misoc_flipsyfat_papilio_pro

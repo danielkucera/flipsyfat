@@ -14,6 +14,7 @@ io = [
         Subsignal("clk", Pins("C:8")),
         Subsignal("cmd", Pins("C:9")),
         Subsignal("d", Pins("C:10 C:11 C:12 C:13")),
+        IOStandard("LVCMOS33")
     )
 ]
 
@@ -21,7 +22,7 @@ class Flipsyfat(BaseSoC):
     def __init__(self, **kwargs):
         BaseSoC.__init__(self, **kwargs)
         self.platform.add_extension(io)
-        self.submodules.sdemu = SDEmulator(self.platform.request("sdemu"))
+        self.submodules.sdemu = SDEmulator(self.platform, self.platform.request("sdemu"))
         self.csr_devices += ["sdemu"]
 
 
