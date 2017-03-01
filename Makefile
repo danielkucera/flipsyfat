@@ -11,7 +11,8 @@ synth:
 	flipsyfat/targets/papilio_pro.py
 
 flash:
-	papilio-prog -v -f misoc_flipsyfat_papilio_pro/gateware/top.bit \
+	sudo papilio-prog -v -r \
+		-f misoc_flipsyfat_papilio_pro/gateware/top.bit \
 		-b $(PAPILIO_DIR)/bscan_spi_lx9.bit \
 		-a 60000:misoc_flipsyfat_papilio_pro/software/bios/bios.bin
 

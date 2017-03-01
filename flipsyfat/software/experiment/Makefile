@@ -18,7 +18,7 @@ experiment.elf: $(OBJECTS) libs
 		$(OBJECTS) \
 		-L$(MSCDIR)/software/libbase \
 		-L$(MSCDIR)/software/libcompiler-rt \
-		-lbase -lcompiler-rt
+		-lcompiler-rt -lbase-nofloat
 	chmod -x $@
 
 main.o: main.c
