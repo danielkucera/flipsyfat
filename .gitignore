@@ -1,3 +1,11 @@
+# Build dir
+misoc_flipsyfat_papilio_pro/
+
+# Firmware
+*.o
+experiment.elf
+experiment.bin
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
