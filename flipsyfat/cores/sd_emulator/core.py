@@ -11,38 +11,48 @@ class SDEmulator(Module, AutoCSR):
        for single 512 byte blocks.
        """
 
-    def  __init__(self, platform, pads, enable_hs=True):
-
+    def  __init__(self, platform, pads, enable_hs=True, clock_domain="sys"):
         self.pads = pads        
-        self.cmd_t = TSTriple()
-        self.specials += self.cmd_t.get_tristate(pads.cmd)
-        self.dat_t = TSTriple(4)
-        self.specials += self.dat_t.get_tristate(pads.d)
 
+        # Adapt PHY tristate style
+        cmd_t = TSTriple()
+        dat_t = TSTriple(4)
+        sd_cmd_t = Signal()
+        sd_dat_t = Signal(4)
+        self.specials += cmd_t.get_tristate(pads.cmd)
+        self.specials += dat_t.get_tristate(pads.d)
+        self.comb += cmd_t.oe.eq(~sd_cmd_t)
+        self.comb += dat_t.oe.eq(~sd_dat_t)
+
+        # The external SD clock drives a separate clock domain
+        self.clock_domains.cd_sd = ClockDomain(reset_less=True)
+        self.comb += ClockSignal("sd").eq(pads.clk)
+
+        # Dual-port SRAM for single 512-byte blocks
+        self.rd_buffer = Memory(32, 128)
+        self.wr_buffer = Memory(32, 128)
+        internal_rd_port = self.rd_buffer.get_port(clock_domain="sd")
+        internal_wr_port = self.rd_buffer.get_port(write_capable=True, clock_domain="sd")
+
+        # Communication between PHY and Link layers
         self.card_state = Signal(4)
         self.mode_4bit = Signal()
-        self.phy_odc = Signal(11)
-        self.phy_ostate = Signal(7)
-
         self.cmd_in = Signal(48)
         self.cmd_in_cmd = Signal(6)
         self.cmd_in_last = Signal(6)
         self.cmd_in_crc_good = Signal()
         self.cmd_in_act = Signal()
-
         self.data_in_act = Signal()
         self.data_in_busy = Signal()
         self.data_in_another = Signal()
         self.data_in_stop = Signal()
         self.data_in_done = Signal()
         self.data_in_crc_good = Signal()
-
         self.resp_out = Signal(136)
         self.resp_type = Signal(4)
         self.resp_busy = Signal()
         self.resp_act = Signal()
         self.resp_done = Signal()
-
         self.data_out_reg = Signal(512)
         self.data_out_src = Signal()
         self.data_out_len = Signal(10)
@@ -51,90 +61,46 @@ class SDEmulator(Module, AutoCSR):
         self.data_out_stop = Signal()
         self.data_out_done = Signal()
 
-        self.bram_rd_sd_clk = Signal()
-        self.bram_rd_sd_addr = Signal(7)
-        self.bram_rd_sd_wren = Signal()
-        self.bram_rd_sd_data = Signal(32)
-        self.bram_rd_sd_q = Signal(32)
-
-        self.bram_wr_sd_clk = Signal()
-        self.bram_wr_sd_addr = Signal(7)
-        self.bram_wr_sd_wren = Signal()
-        self.bram_wr_sd_data = Signal(32)
-        self.bram_wr_sd_q = Signal(32)
-
-        self.bram_rd_ext_clk = Signal()
-        self.bram_rd_ext_addr = Signal(7)
-        self.bram_rd_ext_wren = Signal()
-        self.bram_rd_ext_data = Signal(32)
-        self.bram_rd_ext_q = Signal(32)
-
-        self.bram_wr_ext_clk = Signal()
-        self.bram_wr_ext_addr = Signal(7)
-        self.bram_wr_ext_wren = Signal()
-        self.bram_wr_ext_data = Signal(32)
-        self.bram_wr_ext_q = Signal(32)
-
-        self.block_read_act = Signal()
-        self.block_read_go = Signal()
-        self.block_read_addr = Signal(32)
-        self.block_read_num = Signal(32)
-        self.block_read_stop = Signal()
-
-        self.block_write_act = Signal()
-        self.block_write_done = Signal()
-        self.block_write_addr = Signal(32)
-        self.block_write_num = Signal(32)
-        self.block_preerase_num = Signal(23)
-        self.block_erase_start = Signal(32)
-        self.block_erase_end = Signal(32)
-
+        # Status outputs
         self.info_card_desel = Signal()
         self.err_host_is_spi = Signal()
         self.err_op_out_range = Signal()
         self.err_unhandled_cmd = Signal()
         self.err_cmd_crc = Signal()
 
-        self.specials += Instance("sd_bram_block_dp",
-            i_a_clk = self.bram_rd_sd_clk,
-            i_a_wr = self.bram_rd_sd_wren,
-            i_a_addr = self.bram_rd_sd_addr,
-            i_a_din = self.bram_rd_sd_data,
-            o_a_dout = self.bram_rd_sd_q,
-            i_b_clk = self.bram_rd_ext_clk,
-            i_b_wr = self.bram_rd_ext_wren,
-            i_b_addr = self.bram_rd_ext_addr,
-            i_b_din = self.bram_rd_ext_data,
-            o_b_dout = self.bram_rd_ext_q,
-        )
+        # Debug signals
+        self.phy_odc = Signal(11)
+        self.phy_ostate = Signal(7)
 
-        self.specials += Instance("sd_bram_block_dp",
-            i_a_clk = self.bram_wr_sd_clk,
-            i_a_wr = self.bram_wr_sd_wren,
-            i_a_addr = self.bram_wr_sd_addr,
-            i_a_din = self.bram_wr_sd_data,
-            o_a_dout = self.bram_wr_sd_q,
-            i_b_clk = self.bram_wr_ext_clk,
-            i_b_wr = self.bram_wr_ext_wren,
-            i_b_addr = self.bram_wr_ext_addr,
-            i_b_din = self.bram_wr_ext_data,
-            o_b_dout = self.bram_wr_ext_q,
-        )
+        # I/O request outputs
+        self.block_read_act = Signal()
+        self.block_read_addr = Signal(32)
+        self.block_read_num = Signal(32)
+        self.block_read_stop = Signal()
+        self.block_write_act = Signal()
+        self.block_write_addr = Signal(32)
+        self.block_write_num = Signal(32)
+        self.block_preerase_num = Signal(23)
+        self.block_erase_start = Signal(32)
+        self.block_erase_end = Signal(32)
 
-        sd_cmd_t = Signal()
-        self.comb += self.cmd_t.oe.eq(~sd_cmd_t)
-        sd_dat_t = Signal(4)
-        self.comb += self.dat_t.oe.eq(~sd_dat_t)
+        # I/O completion inputs
+        self.block_read_go = Signal()
+        self.block_write_done = Signal()
+
+        # xxx, for testing, complete all I/O immediately
+        self.comb += self.block_read_go.eq(self.block_read_act)
+        self.comb += self.block_write_done.eq(self.block_write_act)
 
         self.specials += Instance("sd_phy",
-            i_clk_50 = ClockSignal(),
-            i_reset_n = ResetSignal(),
-            i_sd_clk = self.pads.clk,
-            i_sd_cmd_i = self.cmd_t.i,
-            o_sd_cmd_o = self.cmd_t.o,
+            i_clk_50 = ClockSignal(clock_domain),
+            i_reset_n = ResetSignal(clock_domain),
+            i_sd_clk = ClockSignal("sd"),
+            i_sd_cmd_i = cmd_t.i,
+            o_sd_cmd_o = cmd_t.o,
             o_sd_cmd_t = sd_cmd_t,
-            i_sd_dat_i = self.dat_t.i,
-            o_sd_dat_o = self.dat_t.o,
+            i_sd_dat_i = dat_t.i,
+            o_sd_dat_o = dat_t.o,
             o_sd_dat_t = sd_dat_t,
             i_card_state = self.card_state,
             o_cmd_in = self.cmd_in,
@@ -159,23 +125,19 @@ class SDEmulator(Module, AutoCSR):
             i_data_out_act = self.data_out_act,
             i_data_out_stop = self.data_out_stop,
             o_data_out_done = self.data_out_done,
-            o_bram_rd_sd_clk = self.bram_rd_sd_clk,
-            o_bram_rd_sd_addr = self.bram_rd_sd_addr,
-            o_bram_rd_sd_wren = self.bram_rd_sd_wren,
-            o_bram_rd_sd_data = self.bram_rd_sd_data,
-            i_bram_rd_sd_q = self.bram_rd_sd_q,
-            o_bram_wr_sd_clk = self.bram_wr_sd_clk,
-            o_bram_wr_sd_addr = self.bram_wr_sd_addr,
-            o_bram_wr_sd_wren = self.bram_wr_sd_wren,
-            o_bram_wr_sd_data = self.bram_wr_sd_data,
-            i_bram_wr_sd_q = self.bram_wr_sd_q,
+            o_bram_rd_sd_addr = internal_rd_port.adr,
+            i_bram_rd_sd_q = internal_rd_port.dat_r,
+            o_bram_wr_sd_addr = internal_wr_port.adr,
+            o_bram_wr_sd_wren = internal_wr_port.we,
+            o_bram_wr_sd_data = internal_wr_port.dat_w,
+            i_bram_wr_sd_q = internal_wr_port.dat_r,
             o_odc = self.phy_odc,
             o_ostate = self.phy_ostate
         )
 
         self.specials += Instance("sd_link",
-            i_clk_50 = ClockSignal(),
-            i_reset_n = ResetSignal(),
+            i_clk_50 = ClockSignal(clock_domain),
+            i_reset_n = ResetSignal(clock_domain),
             o_link_card_state = self.card_state,
             i_phy_cmd_in = self.cmd_in,
             i_phy_cmd_in_crc_good = self.cmd_in_crc_good,
