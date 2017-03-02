@@ -121,16 +121,21 @@ class SDEmulator(Module, AutoCSR):
             o_b_dout = self.bram_wr_ext_q,
         )
 
+        sd_cmd_t = Signal()
+        self.comb += self.cmd_t.oe.eq(~sd_cmd_t)
+        sd_dat_t = Signal(4)
+        self.comb += self.dat_t.oe.eq(~sd_dat_t)
+
         self.specials += Instance("sd_phy",
             i_clk_50 = ClockSignal(),
             i_reset_n = ResetSignal(),
             i_sd_clk = self.pads.clk,
             i_sd_cmd_i = self.cmd_t.i,
             o_sd_cmd_o = self.cmd_t.o,
-            o_sd_cmd_t = self.cmd_t.oe,
+            o_sd_cmd_t = sd_cmd_t,
             i_sd_dat_i = self.dat_t.i,
             o_sd_dat_o = self.dat_t.o,
-            o_sd_dat_t = self.dat_t.oe,
+            o_sd_dat_t = sd_dat_t,
             i_card_state = self.card_state,
             o_cmd_in = self.cmd_in,
             o_cmd_in_crc_good = self.cmd_in_crc_good,
