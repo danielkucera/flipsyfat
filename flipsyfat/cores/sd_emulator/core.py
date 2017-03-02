@@ -2,7 +2,8 @@ import os
 
 from migen import *
 from misoc.interconnect.csr import *
-
+from misoc.interconnect.csr_eventmanager import *
+from misoc.interconnect import wishbone
 
 
 class SDEmulator(Module, AutoCSR):
@@ -10,21 +11,63 @@ class SDEmulator(Module, AutoCSR):
        with reads and writes backed by software. 
        """
 
+    # Read and write buffers, each a single 512 byte block
+    mem_size = 1024
+
     def __init__(self, platform, pads, **kwargs):
-        ll = SDLinkLayer(platform, pads, **kwargs)
-        self.submodules.ll = ll
+        self.submodules.ll = SDLinkLayer(platform, pads, **kwargs)
+        self.submodules.ev = EventManager()
+        self.ev.read = EventSourceProcess()
+        self.ev.write = EventSourceProcess()
+        self.ev.finalize()
 
-        # xxx, for testing, complete all I/O immediately
-        self.comb += ll.block_read_go.eq(ll.block_read_act)
-        self.comb += ll.block_write_done.eq(ll.block_write_act)
+        # Interrupt events are edge triggered
+        prev_read_act = Signal()
+        prev_write_act = Signal()
+        self.sync += [
+            prev_read_act.eq(self.ll.block_read_act),
+            prev_write_act.eq(self.ll.block_write_act)]
+        self.comb += [
+            self.ev.read.trigger.eq(self.ll.block_read_act & ~prev_read_act),
+            self.ev.write.trigger.eq(self.ll.block_write_act & ~prev_write_act)]
 
-        # temp debug code
-        debug = platform.request('debug')
-        self.comb += debug[:6].eq(ll.cmd_in_cmd)
-        self.comb += debug[6].eq(ll.phy_ostate[0])
-        self.comb += debug[7].eq(ll.cmd_in_crc_good)
-        self.comb += debug[8].eq(ll.cmd_t.i)
-        self.comb += debug[9].eq(ll.cmd_in_act)
+        # Wishbone access to SRAM buffers
+        wb_slaves = [
+            (lambda a: a[9] == 0, wishbone.SRAM(self.ll.rd_buffer, read_only=False).bus),
+            (lambda a: a[9] == 1, wishbone.SRAM(self.ll.wr_buffer, read_only=False).bus),
+        ]
+        self.bus = wishbone.Interface()
+        self.submodules += wishbone.Decoder(self.bus, wb_slaves, register=True)
+
+        # Direct access to "manager" interface for block flow control
+        self._read_act = CSRStatus()
+        self._read_addr = CSRStatus(32)
+        self._read_num = CSRStatus(32)
+        self._read_stop = CSRStatus()
+        self._read_go = CSRStorage()
+
+        self._write_act = CSRStatus()
+        self._write_addr = CSRStatus(32)
+        self._write_num = CSRStatus(32)
+        self._write_done = CSRStorage()
+
+        self._preerase_num = CSRStatus(23)
+        self._erase_start = CSRStatus(32)
+        self._erase_end = CSRStatus(32)
+
+        self.comb += [
+            self._read_act.status.eq(self.ll.block_read_act),
+            self._read_addr.status.eq(self.ll.block_read_addr),
+            self._read_num.status.eq(self.ll.block_read_num),
+            self._read_stop.status.eq(self.ll.block_read_stop),
+            self._write_act.status.eq(self.ll.block_write_act),
+            self._write_addr.status.eq(self.ll.block_write_addr),
+            self._write_num.status.eq(self.ll.block_write_num),
+            self._preerase_num.status.eq(self.ll.block_preerase_num),
+            self._erase_start.status.eq(self.ll.block_erase_start),
+            self._erase_end.status.eq(self.ll.block_erase_end),
+            self.ll.block_read_go.eq(self._read_go.storage),
+            self.ll.block_write_done.eq(self._write_done.storage)]
 
 
 class SDLinkLayer(Module):
