@@ -4,25 +4,51 @@ from migen import *
 from misoc.interconnect.csr import *
 
 
+
 class SDEmulator(Module, AutoCSR):
+    """Core for emulating SD card memory a block at a time,
+       with reads and writes backed by software. 
+       """
+
+    def __init__(self, platform, pads, **kwargs):
+        ll = SDLinkLayer(platform, pads, **kwargs)
+        self.submodules.ll = ll
+
+        # xxx, for testing, complete all I/O immediately
+        self.comb += ll.block_read_go.eq(ll.block_read_act)
+        self.comb += ll.block_write_done.eq(ll.block_write_act)
+
+        # temp debug code
+        debug = platform.request('debug')
+        self.comb += debug[:6].eq(ll.cmd_in_cmd)
+        self.comb += debug[6].eq(ll.phy_ostate[0])
+        self.comb += debug[7].eq(ll.cmd_in_crc_good)
+        self.comb += debug[8].eq(ll.cmd_t.i)
+        self.comb += debug[9].eq(ll.cmd_in_act)
+
+
+class SDLinkLayer(Module):
     """This is a Migen wrapper around the lower-level parts of the SD card emulator
        from Google Project Vault's Open Reference Platform. This core still does all
        SD card command processing in hardware, presenting a RAM buffered interface
        for single 512 byte blocks.
        """
 
-    def  __init__(self, platform, pads, enable_hs=True, clock_domain="sys"):
+    def  __init__(self, platform, pads, enable_hs=True):
         self.pads = pads        
 
+        # Verilog sources from ProjectVault ORP
+        platform.add_source_dir(os.path.join(os.path.abspath(os.path.dirname(__file__)), "verilog"))
+
         # Adapt PHY tristate style
-        cmd_t = TSTriple()
-        dat_t = TSTriple(4)
+        self.cmd_t = TSTriple()
+        self.dat_t = TSTriple(4)
         sd_cmd_t = Signal()
         sd_dat_t = Signal(4)
-        self.specials += cmd_t.get_tristate(pads.cmd)
-        self.specials += dat_t.get_tristate(pads.d)
-        self.comb += cmd_t.oe.eq(~sd_cmd_t)
-        self.comb += dat_t.oe.eq(~sd_dat_t)
+        self.specials += self.cmd_t.get_tristate(pads.cmd)
+        self.specials += self.dat_t.get_tristate(pads.d)
+        self.comb += self.cmd_t.oe.eq(~sd_cmd_t)
+        self.comb += self.dat_t.oe.eq(~sd_dat_t)
 
         # The external SD clock drives a separate clock domain
         self.clock_domains.cd_sd = ClockDomain(reset_less=True)
@@ -32,7 +58,7 @@ class SDEmulator(Module, AutoCSR):
         self.rd_buffer = Memory(32, 128)
         self.wr_buffer = Memory(32, 128)
         internal_rd_port = self.rd_buffer.get_port(clock_domain="sd")
-        internal_wr_port = self.rd_buffer.get_port(write_capable=True, clock_domain="sd")
+        internal_wr_port = self.wr_buffer.get_port(write_capable=True, clock_domain="sd")
 
         # Communication between PHY and Link layers
         self.card_state = Signal(4)
@@ -88,19 +114,15 @@ class SDEmulator(Module, AutoCSR):
         self.block_read_go = Signal()
         self.block_write_done = Signal()
 
-        # xxx, for testing, complete all I/O immediately
-        self.comb += self.block_read_go.eq(self.block_read_act)
-        self.comb += self.block_write_done.eq(self.block_write_act)
-
         self.specials += Instance("sd_phy",
-            i_clk_50 = ClockSignal(clock_domain),
-            i_reset_n = ResetSignal(clock_domain),
+            i_clk_50 = ClockSignal(),
+            i_reset_n = ~ResetSignal(),
             i_sd_clk = ClockSignal("sd"),
-            i_sd_cmd_i = cmd_t.i,
-            o_sd_cmd_o = cmd_t.o,
+            i_sd_cmd_i = self.cmd_t.i,
+            o_sd_cmd_o = self.cmd_t.o,
             o_sd_cmd_t = sd_cmd_t,
-            i_sd_dat_i = dat_t.i,
-            o_sd_dat_o = dat_t.o,
+            i_sd_dat_i = self.dat_t.i,
+            o_sd_dat_o = self.dat_t.o,
             o_sd_dat_t = sd_dat_t,
             i_card_state = self.card_state,
             o_cmd_in = self.cmd_in,
@@ -136,8 +158,8 @@ class SDEmulator(Module, AutoCSR):
         )
 
         self.specials += Instance("sd_link",
-            i_clk_50 = ClockSignal(clock_domain),
-            i_reset_n = ResetSignal(clock_domain),
+            i_clk_50 = ClockSignal(),
+            i_reset_n = ~ResetSignal(),
             o_link_card_state = self.card_state,
             i_phy_cmd_in = self.cmd_in,
             i_phy_cmd_in_crc_good = self.cmd_in_crc_good,
@@ -181,6 +203,3 @@ class SDEmulator(Module, AutoCSR):
             o_err_cmd_crc = self.err_cmd_crc,
             o_cmd_in_cmd = self.cmd_in_cmd
         ) 
-
-        # Verilog sources from ProjectVault ORP
-        platform.add_source_dir(os.path.join(os.path.abspath(os.path.dirname(__file__)), "verilog"))

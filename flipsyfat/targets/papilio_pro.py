@@ -15,7 +15,8 @@ io = [
         Subsignal("cmd", Pins("C:9")),
         Subsignal("d", Pins("C:10 C:11 C:12 C:13")),
         IOStandard("LVCMOS33")
-    )
+    ),
+    ("debug", 0, Pins("C:0 C:1 C:2 C:3 C:4 C:5 C:6 C:7 C:14 C:15"), IOStandard("LVCMOS33")),
 ]
 
 class Flipsyfat(BaseSoC):
