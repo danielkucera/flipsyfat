@@ -78,8 +78,24 @@ static void fat_partition(uint8_t* entry, uint32_t first_sector, uint32_t size)
     fat_uint32(entry+12, size);
 }
 
+static void fat_table_entry(uint8_t* dest, unsigned cluster)
+{
+    if (cluster == 0) {
+        // Special case
+        fat_uint16(dest, 0xff00 | FAT_MEDIA_DESCRIPTOR);
 
-static void fat_dentry(uint8_t* dest, unsigned index)
+    } else if (cluster < FAT_PARTITION_SIZE / FAT_CLUSTER_SIZE) {
+        // All possible clusters occupied, not chained.
+        // No free space.
+        fat_uint16(dest, 0xffff);
+
+    } else {
+        // Unused table entry
+        fat_uint16(dest, 0x0000);
+    }
+}
+
+static void fat_rootdir_entry(uint8_t* dest, unsigned index)
 {
     memset(dest, 0, 32);
 
@@ -92,7 +108,7 @@ static void fat_dentry(uint8_t* dest, unsigned index)
         char name[12];
         const char* ext = "TXT";
 
-        unsigned filesize = 12345;
+        unsigned filesize = BLOCK_SIZE * FAT_CLUSTER_SIZE;
         unsigned first_cluster = 0x100 + index;
 
         sprintf(name, "F%d", index);
@@ -104,6 +120,11 @@ static void fat_dentry(uint8_t* dest, unsigned index)
     }
 }
 
+static void fat_data_block(uint8_t* dest, unsigned cluster, unsigned index)
+{
+    memset(dest, 'd', BLOCK_SIZE); 
+    sprintf((char*) dest, "%04x+%x cluster\n", cluster, index);
+}
 
 void block_read(uint8_t *buf, uint32_t lba)
 {
@@ -127,6 +148,8 @@ void block_read(uint8_t *buf, uint32_t lba)
 	case FAT_PARTITION_START: {
 		memset(buf, 0, BLOCK_SIZE);
         fat_boot_signature(buf);
+        fat_uint24(buf, 0x903ceb);      // Jump to 0x3e
+        fat_uint16(buf+0x3e, 0x19cd);   // Int 19h, reboot
         fat_string(buf+0x03, fat_oem_name, 8);
         fat_uint16(buf+0x0b, BLOCK_SIZE);
         buf[0x0d] = FAT_CLUSTER_SIZE;
@@ -149,11 +172,10 @@ void block_read(uint8_t *buf, uint32_t lba)
 
     // FAT Tables 1 + 2
     case FAT_TABLE_START ... FAT_TABLE_END: {
+        const unsigned per_sector = BLOCK_SIZE / 2;
         unsigned sector = (lba - FAT_TABLE_START) % FAT_SECTORS_PER_TABLE;
-        memset(buf, 0, BLOCK_SIZE);
-        if (sector == 0) {
-            memset(buf, 0xff, 12);
-            buf[0] = 0xf8;
+        for (int i = 0; i < per_sector; i++) {
+            fat_table_entry(buf+i*2, sector*per_sector + i);
         }
         break;
     }
@@ -162,15 +184,23 @@ void block_read(uint8_t *buf, uint32_t lba)
     case FAT_ROOT_START ... FAT_ROOT_END: {
         unsigned start = (lba - FAT_ROOT_START) * FAT_DENTRY_PER_SECTOR;
         for (int i = 0; i < FAT_DENTRY_PER_SECTOR; i++) {
-            fat_dentry(buf+i*0x20, start+i);
+            fat_rootdir_entry(buf+i*0x20, start+i);
         }
+        break;
+    }
+
+    // File Clusters
+    case FAT_ROOT_END + 1 ... FAT_PARTITION_START + FAT_PARTITION_SIZE - 1: {
+        unsigned cluster = 2 + ((lba - FAT_ROOT_END - 1) / FAT_CLUSTER_SIZE);
+        unsigned offset = (lba - FAT_ROOT_END - 1) % FAT_CLUSTER_SIZE;
+        fat_data_block(buf, cluster, offset);
         break;
     }
 
 	// Default pattern
 	default:
 		memset(buf, 'x', BLOCK_SIZE);
-		sprintf((char*) buf, "Unused block 0x%08x\n", lba);
+		sprintf((char*) buf, "%08x block\n", lba);
 	}
 }
 
