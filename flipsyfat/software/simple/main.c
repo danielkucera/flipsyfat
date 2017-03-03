@@ -20,7 +20,7 @@ int main(void)
     uart_init();
     sdemu_init();
 
-    puts("Experiment software built "__DATE__" "__TIME__"\n");
+    puts("Simple example software built "__DATE__" "__TIME__"\n");
 
     while (1) {
         static int last_event = 0;

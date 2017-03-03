@@ -113,7 +113,7 @@ static void fat_rootdir_entry(uint8_t* dest, unsigned index)
 
         sprintf(name, "F%d", index);
 
-        fat_string(dest, name, 11);
+        fat_string(dest, name, 8);
         fat_string(dest+0x8, ext, 3);
         fat_uint16(dest+0x1a, first_cluster);
         fat_uint32(dest+0x1c, filesize);

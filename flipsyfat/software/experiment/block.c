@@ -28,6 +28,8 @@ static const char* fat_oem_name = "FAKEDOS";
 static const char* fat_volume_name = "FLIPSY";
 static const uint32_t fat_volume_serial = 0xf00d1e55;
 
+char filename_guess[12] = "AAAAAAAABIN";
+
 
 static void fat_string(uint8_t* dest, const char *cstr, int field_len)
 {
@@ -105,16 +107,9 @@ static void fat_rootdir_entry(uint8_t* dest, unsigned index)
         dest[0x0b] = 0x28;
 
     } else {
-        char name[12];
-        const char* ext = "TXT";
-
         unsigned filesize = BLOCK_SIZE * FAT_CLUSTER_SIZE;
         unsigned first_cluster = 0x100 + index;
-
-        sprintf(name, "F%d", index);
-
-        fat_string(dest, name, 11);
-        fat_string(dest+0x8, ext, 3);
+        fat_string(dest, filename_guess, 11);
         fat_uint16(dest+0x1a, first_cluster);
         fat_uint32(dest+0x1c, filesize);
     }
