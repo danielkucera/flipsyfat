@@ -4,19 +4,29 @@
 #include "block.h"
 
 #define FAT_PARTITION_START     0x3f
-#define FAT_PARTITION_SIZE  	0xf49e
+#define FAT_PARTITION_SIZE  	0xf480
 #define FAT_CLUSTER_SIZE        4
 #define FAT_RESERVED_SECTORS    1
 #define FAT_MAX_ROOT_ENTRIES    0x200
-#define FAT_ROOT_CLUSTER        2
 #define FAT_SECTORS_PER_TABLE   0x3e
+#define FAT_NUM_TABLES          2
+#define FAT_DENTRY_PER_SECTOR   16
+#define FAT_MEDIA_DESCRIPTOR    0xf8     // Hard Disk
+#define FAT_PHYSICAL_DRIVE_NUM  0x80     // DOS drive
+#define FAT_SECTORS_PER_TRACK   0x20     // Legacy CHS
+#define FAT_CHS_HEADS           0x10
+#define FAT_HIDDEN_SECTORS      0x3f
+#define FAT_EXT_BOOT_SIGNATURE  0x29     // Dos 4.0-style FAT16 EBPB
+#define FAT_FILESYSTEM_TYPE     "FAT16"
 
 #define FAT_TABLE_START         (FAT_PARTITION_START + FAT_RESERVED_SECTORS)
-#define FAT_TABLE_END           (FAT_TABLE_START + FAT_SECTORS_PER_TABLE*2 - 1)
+#define FAT_TABLE_END           (FAT_TABLE_START + FAT_SECTORS_PER_TABLE*FAT_NUM_TABLES - 1)
 #define FAT_ROOT_START          (FAT_TABLE_END + 1)
 #define FAT_ROOT_END            (FAT_ROOT_START + FAT_MAX_ROOT_ENTRIES/16 - 1)
 
+static const char* fat_oem_name = "FAKEDOS";
 static const char* fat_volume_name = "FLIPSY";
+static const uint32_t fat_volume_serial = 0xf00d1e55;
 
 
 static void fat_string(uint8_t* dest, const char *cstr, int field_len)
@@ -31,16 +41,52 @@ static void fat_string(uint8_t* dest, const char *cstr, int field_len)
     }
 }
 
-
-static void fat_dentry(uint32_t* dest, unsigned index)
+static void fat_uint16(uint8_t* dest, uint16_t value)
 {
-    uint8_t *bytes = (uint8_t*) dest;
-    memset(bytes, 0, 32);
+    dest[0] = value;
+    dest[1] = value >> 8;
+}
+
+static void fat_uint24(uint8_t* dest, uint32_t value)
+{
+    dest[0] = value;
+    dest[1] = value >> 8;
+    dest[2] = value >> 16;
+}
+
+static void fat_uint32(uint8_t* dest, uint32_t value)
+{
+    dest[0] = value;
+    dest[1] = value >> 8;
+    dest[2] = value >> 16;
+    dest[3] = value >> 24;
+}
+
+static void fat_boot_signature(uint8_t* block)
+{
+    block[0x1fe] = 0x55;
+    block[0x1ff] = 0xAA;
+}
+
+static void fat_partition(uint8_t* entry, uint32_t first_sector, uint32_t size)
+{
+    entry[0] = 0x00;                    // Status
+    fat_uint24(entry+1, 0x000101);      // First CHS
+    entry[4] = 0x0b;                    // Type
+    fat_uint24(entry+5, 0xfffffe);      // Last CHS
+    fat_uint32(entry+8, first_sector);
+    fat_uint32(entry+12, size);
+}
+
+
+static void fat_dentry(uint8_t* dest, unsigned index)
+{
+    memset(dest, 0, 32);
 
     if (index == 0) {
         // Volume label
-        fat_string(bytes, fat_volume_name, 11);
-        bytes[0x0b] = 0x28;
+        fat_string(dest, fat_volume_name, 11);
+        dest[0x0b] = 0x28;
 
     } else {
         char name[12];
@@ -51,84 +97,84 @@ static void fat_dentry(uint32_t* dest, unsigned index)
 
         sprintf(name, "F%d", index);
 
-        fat_string(bytes, name, 11);
-        fat_string(bytes+8, ext, 3);
-        bytes[0x1a] = first_cluster & 0xff;
-        bytes[0x1b] = first_cluster >> 8;
-        dest[7] = filesize;
+        fat_string(dest, name, 11);
+        fat_string(dest+0x8, ext, 3);
+        fat_uint16(dest+0x1a, first_cluster);
+        fat_uint32(dest+0x1c, filesize);
     }
 }
 
 
-void block_write(uint32_t *buf, uint32_t lba)
+void block_read(uint8_t *buf, uint32_t lba)
 {
-	// Ignore writes
-}
-
-
-void block_read(uint32_t *buf, uint32_t lba)
-{
-	uint8_t *bytes = (uint8_t*) buf;
-
 	switch (lba) {
 
     // Master Boot Record
 	case 0: {
-		memset(bytes, 0, BLOCK_SIZE);
-		buf[111] = 0x00000001;
-		buf[112] = 0x01000bfe;
-		buf[113] = 0xffff0000 | (__builtin_bswap32(FAT_PARTITION_START) >> 16);
-		buf[114] = (__builtin_bswap32(FAT_PARTITION_START) << 16) | (__builtin_bswap32(FAT_PARTITION_SIZE) >> 16);
-		buf[127] = 0x000055aa | (__builtin_bswap32(FAT_PARTITION_SIZE) << 16);
+		memset(buf, 0, BLOCK_SIZE);
+        fat_boot_signature(buf);
+        fat_partition(buf+0x1be, FAT_PARTITION_START, FAT_PARTITION_SIZE);
 		break;
     }
 
     // Reserved space
     case 1 ... FAT_PARTITION_START - 1: {
-        memset(bytes, 0, BLOCK_SIZE);
+        memset(buf, 0, BLOCK_SIZE);
         break;
     }
 
 	// FAT Boot Sector
 	case FAT_PARTITION_START: {
-		memset(bytes, 0, BLOCK_SIZE);
-        buf[3] = 0x02000000 | (FAT_CLUSTER_SIZE << 16) | (__builtin_bswap32(FAT_RESERVED_SECTORS) >> 16);
-        buf[4] = 0x02000000 | ((__builtin_bswap32(FAT_MAX_ROOT_ENTRIES) >> 16) << 8);
-        buf[5] = 0x00F80000 | (__builtin_bswap32(FAT_SECTORS_PER_TABLE) >> 16);
-        buf[8] = __builtin_bswap32(FAT_PARTITION_SIZE);
-        buf[9] = 0x20001000;
-        buf[10] = 0x3f000000;
-        buf[11] = __builtin_bswap32(FAT_ROOT_CLUSTER);
-        fat_string(bytes+43, fat_volume_name, 11);
-        fat_string(bytes+54, "FAT16", 8);
-		buf[127] = 0x000055aa;
+		memset(buf, 0, BLOCK_SIZE);
+        fat_boot_signature(buf);
+        fat_string(buf+0x03, fat_oem_name, 8);
+        fat_uint16(buf+0x0b, BLOCK_SIZE);
+        buf[0x0d] = FAT_CLUSTER_SIZE;
+        fat_uint16(buf+0x0e, FAT_RESERVED_SECTORS);
+        buf[0x10] = FAT_NUM_TABLES;
+        fat_uint16(buf+0x11, FAT_MAX_ROOT_ENTRIES);
+        fat_uint16(buf+0x13, FAT_PARTITION_SIZE);
+        buf[0x15] = FAT_MEDIA_DESCRIPTOR;
+        fat_uint16(buf+0x16, FAT_SECTORS_PER_TABLE);
+        fat_uint16(buf+0x18, FAT_SECTORS_PER_TRACK);
+        fat_uint16(buf+0x1a, FAT_CHS_HEADS);
+        fat_uint16(buf+0x1c, FAT_HIDDEN_SECTORS);
+        buf[0x24] = FAT_PHYSICAL_DRIVE_NUM;
+        buf[0x26] = FAT_EXT_BOOT_SIGNATURE;
+        fat_uint32(buf+0x27, fat_volume_serial);
+        fat_string(buf+0x2b, fat_volume_name, 11);
+        fat_string(buf+0x36, FAT_FILESYSTEM_TYPE, 8);
 		break;
     }
 
     // FAT Tables 1 + 2
     case FAT_TABLE_START ... FAT_TABLE_END: {
         unsigned sector = (lba - FAT_TABLE_START) % FAT_SECTORS_PER_TABLE;
-        memset(bytes, 0, BLOCK_SIZE);
+        memset(buf, 0, BLOCK_SIZE);
         if (sector == 0) {
-            buf[0] = 0xf8ffffff;
-            buf[1] = 0xffffffff;
-            buf[2] = 0xffffffff;
+            memset(buf, 0xff, 12);
+            buf[0] = 0xf8;
         }
         break;
     }
 
     // Root Directory
     case FAT_ROOT_START ... FAT_ROOT_END: {
-        for (int i = 0; i < 16; i++) {
-            fat_dentry(buf+i*8, (lba - FAT_ROOT_START) * 16 + i);
+        unsigned start = (lba - FAT_ROOT_START) * FAT_DENTRY_PER_SECTOR;
+        for (int i = 0; i < FAT_DENTRY_PER_SECTOR; i++) {
+            fat_dentry(buf+i*0x20, start+i);
         }
         break;
     }
 
 	// Default pattern
 	default:
-		memset(bytes, 'x', BLOCK_SIZE);
-		sprintf((char*)bytes, "%08x\n", lba);
+		memset(buf, 'x', BLOCK_SIZE);
+		sprintf((char*) buf, "Unused block 0x%08x\n", lba);
 	}
 }
 
+void block_write(uint8_t *buf, uint32_t lba)
+{
+    // Ignored
+}
