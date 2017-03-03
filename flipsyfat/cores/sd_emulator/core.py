@@ -17,11 +17,11 @@ class SDEmulator(Module, AutoCSR):
     def __init__(self, platform, pads, **kwargs):
         self.submodules.ll = SDLinkLayer(platform, pads, **kwargs)
         self.submodules.ev = EventManager()
-        self.ev.read = EventSourceProcess()
-        self.ev.write = EventSourceProcess()
+        self.ev.read = EventSourcePulse()
+        self.ev.write = EventSourcePulse()
         self.ev.finalize()
 
-        # Interrupt events are edge triggered
+        # Interrupt events are edge triggered on +act
         prev_read_act = Signal()
         prev_write_act = Signal()
         self.sync += [
@@ -32,12 +32,14 @@ class SDEmulator(Module, AutoCSR):
             self.ev.write.trigger.eq(self.ll.block_write_act & ~prev_write_act)]
 
         # Wishbone access to SRAM buffers
-        wb_slaves = [
-            (lambda a: a[9] == 0, wishbone.SRAM(self.ll.rd_buffer, read_only=False).bus),
-            (lambda a: a[9] == 1, wishbone.SRAM(self.ll.wr_buffer, read_only=False).bus),
-        ]
         self.bus = wishbone.Interface()
-        self.submodules += wishbone.Decoder(self.bus, wb_slaves, register=True)
+        self.submodules.wb_rd_buffer = wishbone.SRAM(self.ll.rd_buffer, read_only=False)
+        self.submodules.wb_wr_buffer = wishbone.SRAM(self.ll.wr_buffer, read_only=False)
+        wb_slaves = [
+            (lambda a: a[9] == 0, self.wb_rd_buffer.bus),
+            (lambda a: a[9] == 1, self.wb_wr_buffer.bus)
+        ]
+        self.submodules.wb_decoder = wishbone.Decoder(self.bus, wb_slaves, register=True)
 
         # Direct access to "manager" interface for block flow control
         self._read_act = CSRStatus()
@@ -76,7 +78,8 @@ class SDLinkLayer(Module):
        SD card command processing in hardware, presenting a RAM buffered interface
        for single 512 byte blocks.
        """
-
+    block_size = 512
+   
     def  __init__(self, platform, pads, enable_hs=True):
         self.pads = pads        
 
@@ -95,13 +98,12 @@ class SDLinkLayer(Module):
 
         # The external SD clock drives a separate clock domain
         self.clock_domains.cd_sd = ClockDomain(reset_less=True)
-        self.comb += ClockSignal("sd").eq(pads.clk)
+        self.comb += self.cd_sd.clk.eq(pads.clk)
 
-        # Dual-port SRAM for single 512-byte blocks
-        self.rd_buffer = Memory(32, 128)
-        self.wr_buffer = Memory(32, 128)
-        internal_rd_port = self.rd_buffer.get_port(clock_domain="sd")
-        internal_wr_port = self.wr_buffer.get_port(write_capable=True, clock_domain="sd")
+        self.specials.rd_buffer = Memory(32, self.block_size//4)
+        self.specials.wr_buffer = Memory(32, self.block_size//4)
+        self.specials.internal_rd_port = self.rd_buffer.get_port(clock_domain="sd")
+        self.specials.internal_wr_port = self.wr_buffer.get_port(write_capable=True, clock_domain="sd")
 
         # Communication between PHY and Link layers
         self.card_state = Signal(4)
@@ -190,12 +192,12 @@ class SDLinkLayer(Module):
             i_data_out_act = self.data_out_act,
             i_data_out_stop = self.data_out_stop,
             o_data_out_done = self.data_out_done,
-            o_bram_rd_sd_addr = internal_rd_port.adr,
-            i_bram_rd_sd_q = internal_rd_port.dat_r,
-            o_bram_wr_sd_addr = internal_wr_port.adr,
-            o_bram_wr_sd_wren = internal_wr_port.we,
-            o_bram_wr_sd_data = internal_wr_port.dat_w,
-            i_bram_wr_sd_q = internal_wr_port.dat_r,
+            o_bram_rd_sd_addr = self.internal_rd_port.adr,
+            i_bram_rd_sd_q = self.internal_rd_port.dat_r,
+            o_bram_wr_sd_addr = self.internal_wr_port.adr,
+            o_bram_wr_sd_wren = self.internal_wr_port.we,
+            o_bram_wr_sd_data = self.internal_wr_port.dat_w,
+            i_bram_wr_sd_q = self.internal_wr_port.dat_r,
             o_odc = self.phy_odc,
             o_ostate = self.phy_ostate
         )

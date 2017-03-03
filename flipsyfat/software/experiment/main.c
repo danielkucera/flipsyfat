@@ -10,17 +10,18 @@
 #include <hw/flags.h>
 #include <console.h>
 #include <system.h>
+#include "sdemu.h"
 
 int main(void)
 {
-	irq_setmask(0);
-	irq_setie(1);
-	uart_init();
+    irq_setmask(0);
+    irq_setie(1);
+    uart_init();
+    sdemu_init();
 
-	puts("Experiment software built "__DATE__" "__TIME__"\n");
+    puts("Experiment software built "__DATE__" "__TIME__"\n");
 
-	while (1) {
-	}
+    while (1) {}
 
-	return 0;
+    return 0;
 }

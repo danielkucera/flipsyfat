@@ -1,6 +1,6 @@
 include $(MISOC_DIRECTORY)/software/common.mak
 
-OBJECTS=isr.o main.o
+OBJECTS=isr.o main.o sdemu.o
 
 all: experiment.bin
 
