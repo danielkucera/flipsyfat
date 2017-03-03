@@ -16,20 +16,15 @@ class SDEmulator(Module, AutoCSR):
 
     def __init__(self, platform, pads, **kwargs):
         self.submodules.ll = SDLinkLayer(platform, pads, **kwargs)
-        self.submodules.ev = EventManager()
-        self.ev.read = EventSourcePulse()
-        self.ev.write = EventSourcePulse()
-        self.ev.finalize()
 
-        # Interrupt events are edge triggered on +act
-        prev_read_act = Signal()
-        prev_write_act = Signal()
-        self.sync += [
-            prev_read_act.eq(self.ll.block_read_act),
-            prev_write_act.eq(self.ll.block_write_act)]
+        self.submodules.ev = EventManager()
+        self.ev.read = EventSourceLevel()
+        self.ev.write = EventSourceLevel()
+        self.ev.finalize()
         self.comb += [
-            self.ev.read.trigger.eq(self.ll.block_read_act & ~prev_read_act),
-            self.ev.write.trigger.eq(self.ll.block_write_act & ~prev_write_act)]
+            self.ev.read.trigger.eq(self.ll.block_read_act),
+            self.ev.write.trigger.eq(self.ll.block_write_act)
+        ]
 
         # Wishbone access to SRAM buffers
         self.bus = wishbone.Interface()
@@ -46,12 +41,12 @@ class SDEmulator(Module, AutoCSR):
         self._read_addr = CSRStatus(32)
         self._read_num = CSRStatus(32)
         self._read_stop = CSRStatus()
-        self._read_go = CSRStorage()
+        self._read_go = CSR()
 
         self._write_act = CSRStatus()
         self._write_addr = CSRStatus(32)
         self._write_num = CSRStatus(32)
-        self._write_done = CSRStorage()
+        self._write_done = CSR()
 
         self._preerase_num = CSRStatus(23)
         self._erase_start = CSRStatus(32)
@@ -68,8 +63,8 @@ class SDEmulator(Module, AutoCSR):
             self._preerase_num.status.eq(self.ll.block_preerase_num),
             self._erase_start.status.eq(self.ll.block_erase_start),
             self._erase_end.status.eq(self.ll.block_erase_end),
-            self.ll.block_read_go.eq(self._read_go.storage),
-            self.ll.block_write_done.eq(self._write_done.storage)]
+            self.ll.block_read_go.eq(self._read_go.re),
+            self.ll.block_write_done.eq(self._write_done.re)]
 
 
 class SDLinkLayer(Module):

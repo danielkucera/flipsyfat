@@ -1,6 +1,9 @@
 include $(MISOC_DIRECTORY)/software/common.mak
 
-OBJECTS=isr.o main.o sdemu.o
+OBJECTS=isr.o main.o sdemu.o block.o
+
+# kludge... why isn't gcc finding this on its own?
+LIBGCC_DIR=/usr/local/lib/gcc/lm32-elf/6.3.0
 
 all: experiment.bin
 
@@ -18,7 +21,8 @@ experiment.elf: $(OBJECTS) libs
 		$(OBJECTS) \
 		-L$(MSCDIR)/software/libbase \
 		-L$(MSCDIR)/software/libcompiler-rt \
-		-lcompiler-rt -lbase-nofloat
+		-L$(LIBGCC_DIR) \
+		-lcompiler-rt -lbase-nofloat -lgcc
 	chmod -x $@
 
 main.o: main.c

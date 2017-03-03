@@ -6,5 +6,6 @@
 
 void sdemu_isr(void);
 void sdemu_init(void);
+void sdemu_status(void);
 
 #endif // _SDEMU_H
