@@ -3,8 +3,8 @@ misoc_flipsyfat_papilio_pro/
 
 # Firmware
 *.o
-experiment.elf
-experiment.bin
+*.elf
+*.bin
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,7 +1,7 @@
 include $(MISOC_DIRECTORY)/software/common.mak
 
 OBJECTS = isr.o main.o sdemu.o block.o
-APP = experiment
+APP = simple
 
 # kludge... why isn't gcc finding this on its own?
 LIBGCC_DIR=/usr/local/lib/gcc/lm32-elf/6.3.0
