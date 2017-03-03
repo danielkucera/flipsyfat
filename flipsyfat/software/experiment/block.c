@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+
+#include <generated/csr.h>
+
 #include "block.h"
 
 #define FAT_PARTITION_START     0x3f
@@ -123,6 +126,8 @@ static void fat_data_block(uint8_t* dest, unsigned cluster, unsigned index)
 
 void block_read(uint8_t *buf, uint32_t lba)
 {
+    uint8_t triggers = 0x01;
+
 	switch (lba) {
 
     // Master Boot Record
@@ -178,6 +183,7 @@ void block_read(uint8_t *buf, uint32_t lba)
     // Root Directory
     case FAT_ROOT_START ... FAT_ROOT_END: {
         unsigned start = (lba - FAT_ROOT_START) * FAT_DENTRY_PER_SECTOR;
+        triggers |= 0x02;
         for (int i = 0; i < FAT_DENTRY_PER_SECTOR; i++) {
             fat_rootdir_entry(buf+i*0x20, start+i);
         }
@@ -188,6 +194,7 @@ void block_read(uint8_t *buf, uint32_t lba)
     case FAT_ROOT_END + 1 ... FAT_PARTITION_START + FAT_PARTITION_SIZE - 1: {
         unsigned cluster = 2 + ((lba - FAT_ROOT_END - 1) / FAT_CLUSTER_SIZE);
         unsigned offset = (lba - FAT_ROOT_END - 1) % FAT_CLUSTER_SIZE;
+        triggers |= 0x04;
         fat_data_block(buf, cluster, offset);
         break;
     }
@@ -197,6 +204,9 @@ void block_read(uint8_t *buf, uint32_t lba)
 		memset(buf, 'x', BLOCK_SIZE);
 		sprintf((char*) buf, "%08x block\n", lba);
 	}
+
+    // Update triggers to be latched on read completion
+    sdtrig_latch_write(triggers);
 }
 
 void block_write(uint8_t *buf, uint32_t lba)

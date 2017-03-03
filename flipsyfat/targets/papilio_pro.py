@@ -4,6 +4,7 @@ import argparse
 
 from migen import *
 from flipsyfat.cores.sd_emulator import SDEmulator
+from flipsyfat.cores.sd_trigger import SDTrigger
 from misoc.targets.papilio_pro import BaseSoC
 from migen.build.generic_platform import *
 from misoc.integration.soc_sdram import *
@@ -17,8 +18,12 @@ io = [
         Subsignal("d", Pins("C:10 C:11 C:12 C:13")),
         IOStandard("LVCMOS33")
     ),
+    ("trigger", 0,
+        Pins("C:0 C:1 C:2 C:3 C:4 C:5 C:6 C:7"),
+        IOStandard("LVCMOS33")
+    ),
     ("debug", 0,
-        Pins("C:0 C:1 C:2 C:3 C:4 C:5 C:6 C:7 C:14 C:15"),
+        Pins("C:14 C:15"),
         IOStandard("LVCMOS33")
     ),
 ]
@@ -39,11 +44,12 @@ class Flipsyfat(BaseSoC):
         self.csr_devices += ["sdemu"]
         self.interrupt_devices += ["sdemu"]
 
+        self.submodules.sdtrig = SDTrigger(self.sdemu.ll, self.platform.request("trigger"))
+        self.csr_devices += ["sdtrig"]
+
         debug = self.platform.request("debug")
         self.comb += debug[0].eq(self.sdemu.ll.block_read_act)
-        self.comb += debug[1].eq(self.sdemu.ll.block_read_go)
-        self.comb += debug[2].eq(self.sdemu.ll.block_write_act)
-        self.comb += debug[3].eq(self.sdemu.ll.block_write_done)
+        self.comb += debug[1].eq(self.sdemu.ll.block_write_act)
 
 
 def main():
