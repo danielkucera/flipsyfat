@@ -67,9 +67,11 @@ module sd_phy (
    output reg  [6:0]   bram_wr_sd_addr,
    output reg          bram_wr_sd_wren,
    output reg  [31:0]  bram_wr_sd_data,
-   input  wire [31:0]  bram_wr_sd_q
-   ,
+   input  wire [31:0]  bram_wr_sd_q,
+
+   output reg [10:0]   idc,
    output reg [10:0]   odc,
+   output reg [6:0]    istate,
    output reg [6:0]    ostate
 );
 
@@ -114,13 +116,6 @@ reg  [15:0]  crc16_out3, crc16_out2, crc16_out1, crc16_out0;
 reg  [15:0]  crc16_in3, crc16_in2, crc16_in1, crc16_in0;
 reg  [15:0]  crc16_check3, crc16_check2, crc16_check1, crc16_check0;
 
-   
-reg  [10:0]  idc;
-//reg  [10:0]  odc;
-   
-reg  [6:0]  istate;
-//reg  [6:0]  ostate;
-      
 parameter [6:0] ST_RESET          = 'd0,
                 ST_RESET_WAIT     = 'd1,
                 ST_IDLE           = 'd4,

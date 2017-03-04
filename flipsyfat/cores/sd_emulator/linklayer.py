@@ -70,7 +70,9 @@ class SDLinkLayer(Module):
         self.err_cmd_crc = Signal()
 
         # Debug signals
+        self.phy_idc = Signal(11)
         self.phy_odc = Signal(11)
+        self.phy_istate = Signal(7)
         self.phy_ostate = Signal(7)
 
         # I/O request outputs
@@ -130,7 +132,9 @@ class SDLinkLayer(Module):
             o_bram_wr_sd_wren = self.internal_wr_port.we,
             o_bram_wr_sd_data = self.internal_wr_port.dat_w,
             i_bram_wr_sd_q = self.internal_wr_port.dat_r,
+            o_idc = self.phy_idc,
             o_odc = self.phy_odc,
+            o_istate = self.phy_istate,
             o_ostate = self.phy_ostate
         )
 
