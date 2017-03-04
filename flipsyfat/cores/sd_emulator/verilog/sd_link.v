@@ -148,6 +148,7 @@ wire        reset_s;
 wire [47:0] cmd_in_s;
 wire        cmd_in_crc_good_s;
 wire        cmd_in_act_s, cmd_in_act_r;
+wire        spi_cs_s;
 wire        data_in_busy_s;
 wire        data_in_done_s, data_in_done_r;
 wire        data_in_crc_good_s;
@@ -164,6 +165,8 @@ synch_3       g(phy_data_in_crc_good, data_in_crc_good_s, clk_50);
 synch_3       h(phy_resp_done, resp_done_s, clk_50, resp_done_r);
 synch_3       i(phy_data_out_busy, data_out_busy_s, clk_50);
 synch_3       j(phy_data_out_done, data_out_done_s, clk_50, data_out_done_r);
+synch_3       k(phy_spi_cs, spi_cs_s, clk_50);
+
 
 always @(posedge clk_50) begin
 
@@ -260,10 +263,11 @@ always @(posedge clk_50) begin
          case(cmd_in_cmd)
          CMD0_GO_IDLE: begin
             if(card_state != CARD_INA) begin
-               // reset everything to default
+               // reset everything to default, optionally enter SPI mode
                resp_type <= RESP_NONE;
                state <= ST_RESET;
                data_state <= DST_RESET;
+               phy_mode_spi <= phy_mode_spi | spi_cs_s;
             end
          end
          CMD2_ALL_SEND_CID: case(card_state)

@@ -41,16 +41,13 @@ class SDEmulator(Module, AutoCSR):
         self._read_num = CSRStatus(32)
         self._read_stop = CSRStatus()
         self._read_go = CSR()
-
         self._write_act = CSRStatus()
         self._write_addr = CSRStatus(32)
         self._write_num = CSRStatus(32)
         self._write_done = CSR()
-
         self._preerase_num = CSRStatus(23)
         self._erase_start = CSRStatus(32)
         self._erase_end = CSRStatus(32)
-
         self.comb += [
             self._read_act.status.eq(self.ll.block_read_act),
             self._read_addr.status.eq(self.ll.block_read_addr),
@@ -63,4 +60,18 @@ class SDEmulator(Module, AutoCSR):
             self._erase_start.status.eq(self.ll.block_erase_start),
             self._erase_end.status.eq(self.ll.block_erase_end),
             self.ll.block_read_go.eq(self._read_go.re),
-            self.ll.block_write_done.eq(self._write_done.re)]
+            self.ll.block_write_done.eq(self._write_done.re)
+        ]
+
+        # Informational registers, not needed for data transfer
+        self._info_bits = CSRStatus(4)
+        self.comb += self._info_bits.status.eq(Cat(
+            self.ll.mode_4bit,
+            self.ll.mode_spi,
+            self.ll.info_card_desel,
+            self.ll.err_op_out_range,
+            self.ll.err_unhandled_cmd,
+            self.ll.err_cmd_crc,
+        ))
+        self._most_recent_cmd = CSRStatus(6)
+        self.comb += self._most_recent_cmd.status.eq(self.ll.cmd_in_cmd)

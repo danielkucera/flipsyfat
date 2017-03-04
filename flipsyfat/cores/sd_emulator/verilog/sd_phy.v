@@ -191,6 +191,7 @@ always @(posedge sd_clk or negedge reset_n) begin
    
    sd_cmd_last <= sd_cmd;
    sd_dat_last <= sd_dat[0];
+   spi_cs <= ~sd_dat[3];
       
    // free running counter
    idc <= idc + 1'b1;

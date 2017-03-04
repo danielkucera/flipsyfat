@@ -47,9 +47,13 @@ class Flipsyfat(BaseSoC):
         self.submodules.sdtrig = SDTrigger(self.sdemu.ll, self.platform.request("trigger"))
         self.csr_devices += ["sdtrig"]
 
+        # Activity LED
+        self.io_activity = (self.sdemu.ll.block_read_act | self.sdemu.ll.block_write_act )
+        self.sync += self.platform.request("user_led").eq(self.io_activity)
+ 
         debug = self.platform.request("debug")
         self.comb += debug[0].eq(self.sdemu.ll.block_read_act)
-        self.comb += debug[1].eq(self.sdemu.ll.block_write_act)
+        self.comb += debug[1].eq(self.sdemu.ll.spi_cs)
 
 
 def main():
