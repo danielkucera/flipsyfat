@@ -70,9 +70,12 @@ module sd_link (
    output reg          info_card_desel,
    output reg          err_op_out_range,
    output reg          err_unhandled_cmd,
-   output reg          err_cmd_crc
-   ,
-   output wire [5:0]   cmd_in_cmd
+   output reg          err_cmd_crc,
+
+   output wire [5:0]   cmd_in_cmd,
+   output reg  [15:0]  dc,
+   output reg  [15:0]  ddc,
+   output reg  [6:0]   state
 );
 
 `include "sd_params.vh"
@@ -104,10 +107,6 @@ reg  [31:0]  card_blocks_written;
 reg  [127:0] resp_arg; // for 32 or 128bit
 reg  [3:0]   resp_type;
 
-reg  [15:0]  dc;
-reg  [15:0]  ddc;
-   
-reg  [6:0]   state;
 parameter [6:0] ST_RESET      = 'd0,
                 ST_IDLE       = 'd4,
                 ST_CMD_ACT    = 'd8,
@@ -221,7 +220,6 @@ always @(posedge clk_50) begin
       phy_data_out_act <= 0;
       phy_data_out_stop <= 0;
       phy_mode_4bit <= 0;   
-      phy_mode_spi <= 0;
 
       block_read_act <= 0;
       block_read_num <= 0;
@@ -900,6 +898,7 @@ always @(posedge clk_50) begin
    if(~reset_s) begin
       state <= ST_RESET;
       data_state <= DST_RESET;
+      phy_mode_spi <= 0;
    end    
 end
 

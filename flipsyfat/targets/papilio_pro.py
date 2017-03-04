@@ -52,8 +52,8 @@ class Flipsyfat(BaseSoC):
         self.sync += self.platform.request("user_led").eq(self.io_activity)
  
         debug = self.platform.request("debug")
-        self.comb += debug[0].eq(self.sdemu.ll.block_read_act)
-        self.comb += debug[1].eq(self.sdemu.ll.spi_cs)
+        self.comb += debug[0].eq(self.sdemu.ll.spi_cs)
+        self.comb += debug[1].eq(self.sdemu.ll.mode_spi)
 
 
 def main():

@@ -39,7 +39,6 @@ class SDLinkLayer(Module):
         self.mode_4bit = Signal()
         self.mode_spi = Signal()
         self.cmd_in = Signal(48)
-        self.cmd_in_cmd = Signal(6)
         self.cmd_in_last = Signal(6)
         self.cmd_in_crc_good = Signal()
         self.cmd_in_act = Signal()
@@ -64,6 +63,7 @@ class SDLinkLayer(Module):
         self.data_out_done = Signal()
 
         # Status outputs
+        self.cmd_in_cmd = Signal(6)
         self.info_card_desel = Signal()
         self.err_op_out_range = Signal()
         self.err_unhandled_cmd = Signal()
@@ -74,6 +74,9 @@ class SDLinkLayer(Module):
         self.phy_odc = Signal(11)
         self.phy_istate = Signal(7)
         self.phy_ostate = Signal(7)
+        self.link_state = Signal(7)
+        self.link_ddc = Signal(16)
+        self.link_dc = Signal(16)
 
         # I/O request outputs
         self.block_read_act = Signal()
@@ -183,5 +186,8 @@ class SDLinkLayer(Module):
             o_info_card_desel = self.info_card_desel,
             o_err_unhandled_cmd = self.err_unhandled_cmd,
             o_err_cmd_crc = self.err_cmd_crc,
-            o_cmd_in_cmd = self.cmd_in_cmd
+            o_cmd_in_cmd = self.cmd_in_cmd,
+            o_state = self.link_state,
+            o_dc = self.link_dc,
+            o_ddc = self.link_ddc
         ) 
