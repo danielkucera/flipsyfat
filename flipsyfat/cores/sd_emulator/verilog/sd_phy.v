@@ -12,7 +12,11 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+   This version has been modified with SPI mode support. Changes are:
+   Copyright 2017, Micah Elizabeth Scott, licensed under identical terms. 
 */
+
 module sd_phy (
    input  wire         clk_50,
    input  wire         reset_n,
@@ -30,6 +34,7 @@ module sd_phy (
    output reg  [47:0]  cmd_in,
    output reg          cmd_in_crc_good,
    output reg          cmd_in_act,
+   output reg          spi_cs,
    input  wire         data_in_act,
    output reg          data_in_busy,
    input  wire         data_in_another,
@@ -43,6 +48,7 @@ module sd_phy (
    input  wire         resp_act,
    output reg          resp_done,
    input  wire         mode_4bit,
+   input  wire         mode_spi,
    input  wire [511:0] data_out_reg,
    input  wire         data_out_src,
    input  wire [9:0]   data_out_len,

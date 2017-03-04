@@ -12,7 +12,11 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+   This version has been modified with SPI mode support. Changes are:
+   Copyright 2017, Micah Elizabeth Scott, licensed under identical terms. 
 */
+
 module sd_link (
    input  wire         clk_50,
    input  wire         reset_n,
@@ -22,6 +26,7 @@ module sd_link (
    input  wire [47:0]  phy_cmd_in,
    input  wire         phy_cmd_in_crc_good,
    input  wire         phy_cmd_in_act,
+   input  wire         phy_spi_cs,
    output reg          phy_data_in_act,
    input  wire         phy_data_in_busy,
    output reg          phy_data_in_stop,
@@ -35,6 +40,7 @@ module sd_link (
    output reg          phy_resp_act,
    input  wire         phy_resp_done,
    output reg          phy_mode_4bit,
+   output reg          phy_mode_spi,
    output reg  [511:0] phy_data_out_reg,
    output reg          phy_data_out_src,
    output reg  [9:0]   phy_data_out_len,
@@ -62,7 +68,6 @@ module sd_link (
 
    output reg  [5:0]   cmd_in_last,
    output reg          info_card_desel,
-   output reg          err_host_is_spi,
    output reg          err_op_out_range,
    output reg          err_unhandled_cmd,
    output reg          err_cmd_crc
@@ -169,7 +174,6 @@ always @(posedge clk_50) begin
    ST_RESET: begin
       dc <= 0;
       info_card_desel <= 0;
-      err_host_is_spi <= 0;
       err_op_out_range <= 0;
       err_unhandled_cmd <= 0;
       err_cmd_crc <= 0;
@@ -214,7 +218,8 @@ always @(posedge clk_50) begin
       phy_data_out_act <= 0;
       phy_data_out_stop <= 0;
       phy_mode_4bit <= 0;   
-      
+      phy_mode_spi <= 0;
+
       block_read_act <= 0;
       block_read_num <= 0;
       block_read_stop <= 0;
@@ -509,8 +514,6 @@ always @(posedge clk_50) begin
             if(cmd_in_cmd == 6'd5) err_unhandled_cmd <= 0; // CMD5 for SDIO combo cards
          end
          endcase
-         // CMD1 is only used in SPI mode, which is not supported
-         if(cmd_in_cmd == 6'h1) err_host_is_spi <= 1;
          // check for illegal commands during an expected erase sequence
          if(card_erase_state > 0) begin
             if(   cmd_in_cmd != CMD13_SEND_STATUS && 

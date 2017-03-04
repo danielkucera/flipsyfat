@@ -103,11 +103,13 @@ class SDLinkLayer(Module):
         # Communication between PHY and Link layers
         self.card_state = Signal(4)
         self.mode_4bit = Signal()
+        self.mode_spi = Signal()
         self.cmd_in = Signal(48)
         self.cmd_in_cmd = Signal(6)
         self.cmd_in_last = Signal(6)
         self.cmd_in_crc_good = Signal()
         self.cmd_in_act = Signal()
+        self.spi_cs = Signal()
         self.data_in_act = Signal()
         self.data_in_busy = Signal()
         self.data_in_another = Signal()
@@ -129,7 +131,6 @@ class SDLinkLayer(Module):
 
         # Status outputs
         self.info_card_desel = Signal()
-        self.err_host_is_spi = Signal()
         self.err_op_out_range = Signal()
         self.err_unhandled_cmd = Signal()
         self.err_cmd_crc = Signal()
@@ -168,6 +169,7 @@ class SDLinkLayer(Module):
             o_cmd_in = self.cmd_in,
             o_cmd_in_crc_good = self.cmd_in_crc_good,
             o_cmd_in_act = self.cmd_in_act,
+            o_spi_cs = self.spi_cs,
             i_data_in_act = self.data_in_act,
             o_data_in_busy = self.data_in_busy,
             i_data_in_another = self.data_in_another,
@@ -180,6 +182,7 @@ class SDLinkLayer(Module):
             i_resp_act = self.resp_act,
             o_resp_done = self.resp_done,
             i_mode_4bit = self.mode_4bit,
+            o_mode_spi = self.mode_spi,
             i_data_out_reg = self.data_out_reg,
             i_data_out_src = self.data_out_src,
             i_data_out_len = self.data_out_len,
@@ -204,6 +207,7 @@ class SDLinkLayer(Module):
             i_phy_cmd_in = self.cmd_in,
             i_phy_cmd_in_crc_good = self.cmd_in_crc_good,
             i_phy_cmd_in_act = self.cmd_in_act,
+            i_phy_spi_cs = self.spi_cs,
             o_phy_data_in_act = self.data_in_act,
             i_phy_data_in_busy = self.data_in_busy,
             o_phy_data_in_stop = self.data_in_stop,
@@ -216,6 +220,7 @@ class SDLinkLayer(Module):
             o_phy_resp_act = self.resp_act,
             i_phy_resp_done = self.resp_done,
             o_phy_mode_4bit = self.mode_4bit,
+            o_phy_mode_spi = self.mode_spi,
             o_phy_data_out_reg = self.data_out_reg,
             o_phy_data_out_src = self.data_out_src,
             o_phy_data_out_len = self.data_out_len,
@@ -238,7 +243,6 @@ class SDLinkLayer(Module):
             i_opt_enable_hs = Constant(enable_hs),
             o_cmd_in_last = self.cmd_in_last,
             o_info_card_desel = self.info_card_desel,
-            o_err_host_is_spi = self.err_host_is_spi,
             o_err_unhandled_cmd = self.err_unhandled_cmd,
             o_err_cmd_crc = self.err_cmd_crc,
             o_cmd_in_cmd = self.cmd_in_cmd
