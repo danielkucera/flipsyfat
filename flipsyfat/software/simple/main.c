@@ -10,7 +10,10 @@
 #include <hw/flags.h>
 #include <console.h>
 #include <system.h>
+
+#include "fat.h"
 #include "sdemu.h"
+
 
 int main(void)
 {
@@ -30,4 +33,36 @@ int main(void)
     }
 
     return 0;
+}
+
+
+void fat_rootdir_entry(uint8_t* dest, unsigned index)
+{
+    memset(dest, 0, 32);
+
+    if (index == 0) {
+        // Volume label
+        fat_string(dest, fat_volume_name, 11);
+        dest[0x0b] = 0x28;
+
+    } else {
+        char name[12];
+        const char* ext = "TXT";
+
+        unsigned filesize = BLOCK_SIZE * FAT_CLUSTER_SIZE;
+        unsigned first_cluster = 0x100 + index;
+
+        sprintf(name, "F%d", index);
+
+        fat_string(dest, name, 8);
+        fat_string(dest+0x8, ext, 3);
+        fat_uint16(dest+0x1a, first_cluster);
+        fat_uint32(dest+0x1c, filesize);
+    }
+}
+
+void fat_data_block(uint8_t* dest, unsigned cluster, unsigned index)
+{
+    memset(dest, 'd', BLOCK_SIZE); 
+    sprintf((char*) dest, "%04x+%x cluster\n", cluster, index);
 }

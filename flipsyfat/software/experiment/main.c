@@ -11,15 +11,12 @@
 #include <generated/mem.h>
 #include <console.h>
 #include <system.h>
+
 #include "sdemu.h"
-#include "block.h"
+#include "fat.h"
 
-
-static void change_guess(int offset, int amount)
-{
-    char c = filename_guess[offset] + amount;
-    memset(filename_guess + offset, c, 11 - offset);
-}
+static char filename_guess[12] = "ABCDEFGHDAT";
+void change_guess(int offset, int amount);
 
 
 int main(void)
@@ -66,4 +63,29 @@ int main(void)
     }
 
     return 0;
+}
+
+
+void change_guess(int offset, int amount)
+{
+    char c = filename_guess[offset] + amount;
+    memset(filename_guess + offset, c, 11 - offset);
+}
+
+
+void fat_rootdir_entry(uint8_t* dest, unsigned index)
+{
+    memset(dest, 0, 32);
+    if (index == 0) {
+        fat_volume_label(dest);
+    } else {
+        fat_plain_file(dest, filename_guess, 0x100 + index, BLOCK_SIZE * FAT_CLUSTER_SIZE);
+    }
+}
+
+
+void fat_data_block(uint8_t* dest, unsigned cluster, unsigned index)
+{
+    memset(dest, 'd', BLOCK_SIZE); 
+    sprintf((char*) dest, "%04x+%x cluster\n", cluster, index);
 }
