@@ -79,7 +79,8 @@ void fat_rootdir_entry(uint8_t* dest, unsigned index)
     if (index == 0) {
         fat_volume_label(dest);
     } else {
-        fat_plain_file(dest, filename_guess, 0x100 + index, BLOCK_SIZE * FAT_CLUSTER_SIZE);
+        fat_plain_file(dest, filename_guess, filename_guess + 8,
+            0x100 + index, BLOCK_SIZE * FAT_CLUSTER_SIZE);
     }
 }
 

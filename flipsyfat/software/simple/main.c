@@ -6,8 +6,6 @@
 #include <uart.h>
 #include <time.h>
 #include <generated/csr.h>
-#include <generated/mem.h>
-#include <hw/flags.h>
 #include <console.h>
 #include <system.h>
 
@@ -35,29 +33,19 @@ int main(void)
     return 0;
 }
 
-
 void fat_rootdir_entry(uint8_t* dest, unsigned index)
 {
     memset(dest, 0, 32);
-
     if (index == 0) {
-        // Volume label
-        fat_string(dest, fat_volume_name, 11);
-        dest[0x0b] = 0x28;
-
+        fat_volume_label(dest);
     } else {
-        char name[12];
-        const char* ext = "TXT";
+        char name[9];
 
-        unsigned filesize = BLOCK_SIZE * FAT_CLUSTER_SIZE;
-        unsigned first_cluster = 0x100 + index;
-
+        // Make up a filename!
         sprintf(name, "F%d", index);
 
-        fat_string(dest, name, 8);
-        fat_string(dest+0x8, ext, 3);
-        fat_uint16(dest+0x1a, first_cluster);
-        fat_uint32(dest+0x1c, filesize);
+        // Each file will be one cluster, at an arbitrary address
+        fat_plain_file(dest, name, "TXT", 0x100 + index, BLOCK_SIZE * FAT_CLUSTER_SIZE);
     }
 }
 

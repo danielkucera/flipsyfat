@@ -108,9 +108,11 @@ static inline void fat_volume_label(uint8_t *dest)
     dest[0x0b] = 0x28;
 }
 
-static inline void fat_plain_file(uint8_t *dest, const char *name, unsigned first_cluster, unsigned filesize)
+static inline void fat_plain_file(uint8_t *dest, const char *name, const char *ext,
+    unsigned first_cluster, unsigned filesize)
 {
-    fat_string(dest, name, 11);
+    fat_string(dest, name, 8);
+    fat_string(dest+0x08, ext, 3);
     fat_uint16(dest+0x1a, first_cluster);
     fat_uint32(dest+0x1c, filesize);
 }
