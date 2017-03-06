@@ -31,7 +31,7 @@ static const char* fat_oem_name = "FAKEDOS";
 static const char* fat_volume_name = "FLIPSY";
 static const uint32_t fat_volume_serial = 0xf00d1e55;
 
-char filename_guess[12] = "AAAAAAAABIN";
+char filename_guess[12] = "ABCDEFGHDAT";
 
 
 static void fat_string(uint8_t* dest, const char *cstr, int field_len)
