@@ -5,14 +5,14 @@ from migen.fhdl.decorators import ClockDomainsRenamer
 
 
 class SDTriggerOutputDriver(Module, AutoCSR):
-    def __init__(self, trig_out, latch_in, oe_in, pulse_cycles=20):
+    def __init__(self, trig_out, latch_in, posedge_in, pulse_cycles=5):
 
-        oe_prev = Signal()
+        posedge_prev = Signal()
         counter = Signal(log2_int(pulse_cycles, need_pow2=False))
 
         self.sync += [
-            oe_prev.eq(oe_in),
-            If(oe_prev & ~oe_in,
+            posedge_prev.eq(posedge_in),
+            If(posedge_in & ~posedge_prev,
                 counter.eq(pulse_cycles),
                 trig_out.eq(latch_in)
             ).Elif(counter == 0,
@@ -39,4 +39,4 @@ class SDTrigger(Module, AutoCSR):
 
         # Output circuit itself is entirely in SD clock domain
         self.submodules.drv = ClockDomainsRenamer("sd")(
-           SDTriggerOutputDriver(pins, sdcd_latch, sd_linklayer.dat_t.oe))
+           SDTriggerOutputDriver(pins, sdcd_latch, sd_linklayer.data_out_done))

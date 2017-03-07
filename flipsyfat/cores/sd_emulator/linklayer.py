@@ -15,15 +15,20 @@ class SDLinkLayer(Module):
         # Verilog sources from ProjectVault ORP
         platform.add_source_dir(os.path.join(os.path.abspath(os.path.dirname(__file__)), "verilog"))
 
-        # Adapt PHY tristate style
+        # Adapt PHY tristate style.
+        # It uses the opposite polarity, and requires individual control over D0-D3.
         self.cmd_t = TSTriple()
-        self.dat_t = TSTriple(4)
+        self.dat_t = Array([ TSTriple() for i in range(len(pads.d)) ]) 
         sd_cmd_t = Signal()
+        sd_dat_i = Signal(4)
+        sd_dat_o = Signal(4)
         sd_dat_t = Signal(4)
         self.specials += self.cmd_t.get_tristate(pads.cmd)
-        self.specials += self.dat_t.get_tristate(pads.d)
+        self.specials += [d.get_tristate(pads.d) for d in self.dat_t]
         self.comb += self.cmd_t.oe.eq(~sd_cmd_t)
-        self.comb += self.dat_t.oe.eq(~sd_dat_t)
+        self.comb += [self.dat_t[i].oe.eq(~sd_dat_t[i]) for i in range(len(pads.d))]
+        self.comb += [self.dat_t[i].o.eq(sd_dat_o[i]) for i in range(len(pads.d))]
+        self.comb += [sd_dat_i[i].eq(self.dat_t[i].i) for i in range(len(pads.d))]
 
         # The external SD clock drives a separate clock domain
         self.clock_domains.cd_sd = ClockDomain(reset_less=True)
@@ -102,8 +107,8 @@ class SDLinkLayer(Module):
             i_sd_cmd_i = self.cmd_t.i,
             o_sd_cmd_o = self.cmd_t.o,
             o_sd_cmd_t = sd_cmd_t,
-            i_sd_dat_i = self.dat_t.i,
-            o_sd_dat_o = self.dat_t.o,
+            i_sd_dat_i = sd_dat_i,
+            o_sd_dat_o = sd_dat_o,
             o_sd_dat_t = sd_dat_t,
             i_card_state = self.card_state,
             o_cmd_in = self.cmd_in,
@@ -149,7 +154,7 @@ class SDLinkLayer(Module):
             i_phy_cmd_in = self.cmd_in,
             i_phy_cmd_in_crc_good = self.cmd_in_crc_good,
             i_phy_cmd_in_act = self.cmd_in_act,
-            i_phy_spi_cs = self.dat_t.i[3],
+            i_phy_spi_cs = sd_dat_i[3],
             o_phy_data_in_act = self.data_in_act,
             i_phy_data_in_busy = self.data_in_busy,
             o_phy_data_in_stop = self.data_in_stop,
