@@ -38,6 +38,7 @@ class SDLinkLayer(Module):
         self.card_state = Signal(4)
         self.mode_4bit = Signal()
         self.mode_spi = Signal()
+        self.mode_crc_disable = Signal()
         self.cmd_in = Signal(48)
         self.cmd_in_last = Signal(6)
         self.cmd_in_crc_good = Signal()
@@ -108,7 +109,6 @@ class SDLinkLayer(Module):
             o_cmd_in = self.cmd_in,
             o_cmd_in_crc_good = self.cmd_in_crc_good,
             o_cmd_in_act = self.cmd_in_act,
-            o_spi_cs = self.spi_cs,
             i_data_in_act = self.data_in_act,
             o_data_in_busy = self.data_in_busy,
             i_data_in_another = self.data_in_another,
@@ -121,7 +121,8 @@ class SDLinkLayer(Module):
             i_resp_act = self.resp_act,
             o_resp_done = self.resp_done,
             i_mode_4bit = self.mode_4bit,
-            o_mode_spi = self.mode_spi,
+            i_mode_spi = self.mode_spi,
+            i_mode_crc_disable = self.mode_crc_disable,
             i_data_out_reg = self.data_out_reg,
             i_data_out_src = self.data_out_src,
             i_data_out_len = self.data_out_len,
@@ -148,7 +149,7 @@ class SDLinkLayer(Module):
             i_phy_cmd_in = self.cmd_in,
             i_phy_cmd_in_crc_good = self.cmd_in_crc_good,
             i_phy_cmd_in_act = self.cmd_in_act,
-            i_phy_spi_cs = self.spi_cs,
+            i_phy_spi_cs = self.dat_t.i[3],
             o_phy_data_in_act = self.data_in_act,
             i_phy_data_in_busy = self.data_in_busy,
             o_phy_data_in_stop = self.data_in_stop,
@@ -162,6 +163,7 @@ class SDLinkLayer(Module):
             i_phy_resp_done = self.resp_done,
             o_phy_mode_4bit = self.mode_4bit,
             o_phy_mode_spi = self.mode_spi,
+            o_phy_mode_crc_disable = self.mode_crc_disable,
             o_phy_data_out_reg = self.data_out_reg,
             o_phy_data_out_src = self.data_out_src,
             o_phy_data_out_len = self.data_out_len,

@@ -34,7 +34,6 @@ module sd_phy (
    output reg  [47:0]  cmd_in,
    output reg          cmd_in_crc_good,
    output reg          cmd_in_act,
-   output reg          spi_cs,
    input  wire         data_in_act,
    output reg          data_in_busy,
    input  wire         data_in_another,
@@ -49,6 +48,7 @@ module sd_phy (
    output reg          resp_done,
    input  wire         mode_4bit,
    input  wire         mode_spi,
+   input  wire         mode_crc_disable,
    input  wire [511:0] data_out_reg,
    input  wire         data_out_src,
    input  wire [9:0]   data_out_len,
@@ -77,31 +77,28 @@ module sd_phy (
 
 `include "sd_params.vh"
 `include "sd_const.vh"
-   
+
 assign bram_rd_sd_clk = sd_clk;
 assign bram_wr_sd_clk = sd_clk;
    
 reg  sd_cmd_out;
 reg  sd_cmd_oe;
 wire sd_cmd = sd_cmd_i;
-//assign         sd_cmd = sd_cmd_oe ? sd_cmd_out : 1'bZ;
-assign sd_cmd_t = !sd_cmd_oe;
+assign sd_cmd_t = mode_spi_s ? 1'b1 : !sd_cmd_oe;
 assign sd_cmd_o = sd_cmd_out;
-   
+ 
 // tristate data lines when card state is DISCONNECT
 reg  [3:0] sd_dat_out;
 reg  [3:0] sd_dat_oe;
 wire [3:0] sd_dat = sd_dat_i;
-   
-/*
-assign         sd_dat[3] = (sd_dat_oe[3] && card_state_s != CARD_DIS) ? sd_dat_out[3] : 1'bZ;
-assign         sd_dat[2] = (sd_dat_oe[2] && card_state_s != CARD_DIS) ? sd_dat_out[2] : 1'bZ;
-assign         sd_dat[1] = (sd_dat_oe[1] && card_state_s != CARD_DIS) ? sd_dat_out[1] : 1'bZ;
-assign         sd_dat[0] = (sd_dat_oe[0] && card_state_s != CARD_DIS) ? sd_dat_out[0] : 1'bZ;
-*/
-assign sd_dat_o = sd_dat_out;
-assign sd_dat_t = ~sd_dat_oe | {4{card_state_s == CARD_DIS}};
-   
+assign sd_dat_o = mode_spi_s ? { 3'b000, spi_miso } : sd_dat_out;
+assign sd_dat_t = {4{card_state_s == CARD_DIS}} | (mode_spi_s ? { 3'b111, spi_cs } : ~sd_dat_oe);
+
+wire spi_miso = sd_dat_oe[0] ? sd_dat_out[0] : sd_cmd_oe ? sd_cmd_out : 1'b1;
+wire spi_mosi = sd_cmd_i;
+wire spi_cs = sd_dat_i[3];
+reg [7:0] spi_cnt = 0;
+
 reg          sd_cmd_last;
 reg          sd_dat_last;
 reg  [46:0]  cmd_in_latch;
@@ -166,6 +163,8 @@ wire        data_out_act_s, data_out_act_r;
 wire        data_out_stop_s;
 wire [3:0]  card_state_s;
 wire        mode_4bit_s;
+wire        mode_spi_s;
+wire        mode_crc_disable_s;
 synch_3       a(data_in_act, data_in_act_s, sd_clk, data_in_act_r);
 synch_3       i(data_in_stop, data_in_stop_s, sd_clk);
 synch_3       j(data_in_another, data_in_another_s, sd_clk);
@@ -176,6 +175,8 @@ synch_3       e(data_out_act, data_out_act_s, sd_clk, data_out_act_r);
 synch_3       f(data_out_stop, data_out_stop_s, sd_clk);
 synch_3 #(4)  g(card_state, card_state_s, sd_clk);
 synch_3       h(mode_4bit, mode_4bit_s, sd_clk);
+synch_3       k(mode_spi, mode_spi_s, sd_clk);
+synch_3       l(mode_crc_disable, mode_crc_disable_s, sd_clk);
 
 always @(posedge sd_clk or negedge reset_n) begin
 
@@ -186,11 +187,13 @@ always @(posedge sd_clk or negedge reset_n) begin
    
    sd_cmd_last <= sd_cmd;
    sd_dat_last <= sd_dat[0];
-   spi_cs <= ~sd_dat[3];
       
    // free running counter
    idc <= idc + 1'b1;
-   
+
+   // count SPI bits, reset when chip-select goes high
+   spi_cnt <= spi_cs ? 0 : (spi_cnt + 1'b1);
+
    //
    // command input FSM
    //
@@ -231,7 +234,7 @@ always @(posedge sd_clk or negedge reset_n) begin
    end
    ST_CMD_CHECK: begin
       // compare CRC7
-      cmd_in_crc_good <= ( cmd_in_latch[6:0] == crc7_in );
+      cmd_in_crc_good <= mode_crc_disable_s | ( cmd_in_latch[6:0] == crc7_in );
       cmd_in <= {cmd_in_latch, sd_cmd};
       cmd_in_act <= cmd_in_latch[45];
       
@@ -314,10 +317,9 @@ always @(posedge sd_clk or negedge reset_n) begin
       if(didc == 16 || data_in_stop_s) begin
          // end, including 1 stop bit
          data_in_done <= 1;
-         if( {crc16_check3, crc16_check2, crc16_check1, crc16_check0} ==
-            {crc16_in3, crc16_in2, crc16_in1, crc16_in0} ) begin
-            data_in_crc_good <= 1;
-         end else data_in_crc_good <= 0;
+         data_in_crc_good <= mode_crc_disable_s |
+            ( {crc16_check3, crc16_check2, crc16_check1, crc16_check0} ==
+              {crc16_in3, crc16_in2, crc16_in1, crc16_in0} );
          didc <= 0;
          distate <= ST_DATA_READ_3;
          
@@ -370,8 +372,10 @@ always @(negedge sd_clk or negedge reset_n) begin
    end
    ST_RESP_PREAMBLE: begin
       // to meet exact 5 cycle requirement between command and response for CMD2/ACMD41
+      // In SPI mode, wait here to align the write with a byte boundary.
       odc <= 0;
-      ostate <= ST_RESP_WRITE;
+      if (mode_spi_s ? (spi_cnt[3:0] == 3'b000) : 1'b1)
+         ostate <= ST_RESP_WRITE;
    end
    ST_RESP_WRITE: begin
       sd_cmd_oe <= 1;
@@ -379,30 +383,52 @@ always @(negedge sd_clk or negedge reset_n) begin
       crc7_out <= {   crc7_out[5], crc7_out[4], crc7_out[3], crc7_out[2] ^ crc7_out[6] ^ resp_out_latch[135],
                   crc7_out[1], crc7_out[0], resp_out_latch[135] ^ crc7_out[6]   };   
       resp_out_latch <= {resp_out_latch[134:0], 1'b1};   
-      case(resp_type_s)
-      RESP_R1, RESP_R1B, RESP_R3, RESP_R6, RESP_R7: begin
-         // 48 bit codes   
-         if(resp_type_s == RESP_R3) begin
-            // fix R3 CRC to 1's
-            crc7_out <= 7'b1111111;
+
+
+      if (mode_spi_s) begin
+         // SPI-mode responses
+         case(resp_type_s)
+         RESP_R1: begin
+            // One byte
+            if(odc==7) ostate <= ST_RESP_WRITE_END;
          end
-         if(odc >= 40) begin
-            crc7_out <= {crc7_out[5:0], 1'b1};
-            sd_cmd_out <= crc7_out[6];
+         RESP_R2: begin
+            // Two bytes
+            if(odc==15) ostate <= ST_RESP_WRITE_END;
          end
-         if(odc == 47) ostate <= ST_RESP_WRITE_END;
+         RESP_R3, RESP_R7: begin
+            // 5 bytes
+            if(odc==39) ostate <= ST_RESP_WRITE_END;
+         end
+         endcase
       end
-      RESP_R2: begin
-         // 136 bit codes
-         // only CRC over the last 128 bits
-         if(odc < 8) crc7_out <= 0;
-         if(odc >= 128) begin
-            crc7_out <= {crc7_out[5:0], 1'b1};
-            sd_cmd_out <= crc7_out[6];
+      else begin
+         // SD-mode responses
+         case(resp_type_s)
+         RESP_R1, RESP_R1B, RESP_R3, RESP_R6, RESP_R7: begin
+            // 48 bit codes   
+            if(resp_type_s == RESP_R3) begin
+               // fix R3 CRC to 1's
+               crc7_out <= 7'b1111111;
+            end
+            if(odc >= 40) begin
+               crc7_out <= {crc7_out[5:0], 1'b1};
+               sd_cmd_out <= crc7_out[6];
+            end
+            if(odc == 47) ostate <= ST_RESP_WRITE_END;
          end
-         if(odc == 135) ostate <= ST_RESP_WRITE_END;
+         RESP_R2: begin
+            // 136 bit codes
+            // only CRC over the last 128 bits
+            if(odc < 8) crc7_out <= 0;
+            if(odc >= 128) begin
+               crc7_out <= {crc7_out[5:0], 1'b1};
+               sd_cmd_out <= crc7_out[6];
+            end
+            if(odc == 135) ostate <= ST_RESP_WRITE_END;
+         end
+         endcase
       end
-      endcase
    end
    ST_RESP_WRITE_END: begin
       sd_cmd_oe <= 0;
@@ -411,8 +437,6 @@ always @(negedge sd_clk or negedge reset_n) begin
    end
    default: ostate <= ST_RESET;
    endcase
-   
-   
    
    dodc <= dodc + 1'b1;
    bram_rd_sd_wren <= 0;
