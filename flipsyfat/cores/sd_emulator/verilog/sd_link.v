@@ -26,7 +26,7 @@ module sd_link (
    input  wire [47:0]  phy_cmd_in,
    input  wire         phy_cmd_in_crc_good,
    input  wire         phy_cmd_in_act,
-   input  wire         phy_spi_cs,
+   input  wire         phy_spi_sel,
    output reg          phy_data_in_act,
    input  wire         phy_data_in_busy,
    output reg          phy_data_in_stop,
@@ -134,6 +134,9 @@ parameter [6:0] DST_RESET      = 'd0,
                 DST_DATA_IN_5  = 'd25,
                 DST_LAST       = 'd127;
 
+// Would we be entering SPI mode if CMD0 is happening?
+wire spi_mode_in_cmd0 = phy_mode_spi | spi_sel_s;
+
 wire spi_parameter_error_flag = card_status[STAT_ADDRESS_ERROR] | 
                                 card_status[STAT_BLOCK_LEN_ERROR] |
                                 card_status[STAT_ERASE_PARAM];
@@ -172,7 +175,7 @@ wire        reset_s;
 wire [47:0] cmd_in_s;
 wire        cmd_in_crc_good_s;
 wire        cmd_in_act_s, cmd_in_act_r;
-wire        spi_cs_s;
+wire        spi_sel_s;
 wire        data_in_busy_s;
 wire        data_in_done_s, data_in_done_r;
 wire        data_in_crc_good_s;
@@ -189,7 +192,7 @@ synch_3       g(phy_data_in_crc_good, data_in_crc_good_s, clk_50);
 synch_3       h(phy_resp_done, resp_done_s, clk_50, resp_done_r);
 synch_3       i(phy_data_out_busy, data_out_busy_s, clk_50);
 synch_3       j(phy_data_out_done, data_out_done_s, clk_50, data_out_done_r);
-synch_3       k(phy_spi_cs, spi_cs_s, clk_50);
+synch_3       k(phy_spi_sel, spi_sel_s, clk_50);
 
 
 always @(posedge clk_50) begin
@@ -290,11 +293,11 @@ always @(posedge clk_50) begin
                // reset everything to default, optionally enter SPI mode.
                // In SPI, the CRC on future commands won't be checked by default
                // but this can be reconfigured with CMD59.
-               resp_type <= phy_mode_spi ? RESP_R1 : RESP_NONE;
-               state <= phy_mode_spi ? ST_CMD_RESP_0 : ST_RESET;
+               resp_type <= spi_mode_in_cmd0 ? RESP_R1 : RESP_NONE;
+               state <= spi_mode_in_cmd0 ? ST_CMD_RESP_0 : ST_RESET;
                data_state <= DST_RESET;
-               phy_mode_spi <= phy_mode_spi | ~spi_cs_s;
-               phy_mode_crc_disable <= phy_mode_spi | ~spi_cs_s;
+               phy_mode_spi <= spi_mode_in_cmd0;
+               phy_mode_crc_disable <= spi_mode_in_cmd0;
             end
          end
          CMD2_ALL_SEND_CID: case(card_state)

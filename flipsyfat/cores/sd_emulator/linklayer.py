@@ -18,21 +18,23 @@ class SDLinkLayer(Module):
         # Adapt PHY tristate style.
         # It uses the opposite polarity, and requires individual control over D0-D3.
         self.cmd_t = TSTriple()
-        self.dat_t = Array([ TSTriple() for i in range(len(pads.d)) ]) 
-        sd_cmd_t = Signal()
-        sd_dat_i = Signal(4)
-        sd_dat_o = Signal(4)
-        sd_dat_t = Signal(4)
+        self.dat_t = Array([ TSTriple() for n in range(4) ]) 
+        self.sd_cmd_t = Signal()
+        self.sd_dat_i = Signal(4)
+        self.sd_dat_o = Signal(4)
+        self.sd_dat_t = Signal(4)
         self.specials += self.cmd_t.get_tristate(pads.cmd)
-        self.specials += [d.get_tristate(pads.d) for d in self.dat_t]
-        self.comb += self.cmd_t.oe.eq(~sd_cmd_t)
-        self.comb += [self.dat_t[i].oe.eq(~sd_dat_t[i]) for i in range(len(pads.d))]
-        self.comb += [self.dat_t[i].o.eq(sd_dat_o[i]) for i in range(len(pads.d))]
-        self.comb += [sd_dat_i[i].eq(self.dat_t[i].i) for i in range(len(pads.d))]
+        self.comb += self.cmd_t.oe.eq(~self.sd_cmd_t)
+        for n in range(4):
+            self.specials += self.dat_t[n].get_tristate(pads.d[n])
+            self.comb += self.dat_t[n].oe.eq(~self.sd_dat_t[n])
+            self.comb += self.dat_t[n].o.eq(self.sd_dat_o[n])
+            self.comb += self.sd_dat_i[n].eq(self.dat_t[n].i)
 
         # The external SD clock drives a separate clock domain
         self.clock_domains.cd_sd = ClockDomain(reset_less=True)
         self.comb += self.cd_sd.clk.eq(pads.clk)
+        platform.add_period_constraint(pads.clk, (40.0, 19.2)[enable_hs])
 
         self.specials.rd_buffer = Memory(32, self.block_size//4)
         self.specials.wr_buffer = Memory(32, self.block_size//4)
@@ -44,11 +46,11 @@ class SDLinkLayer(Module):
         self.mode_4bit = Signal()
         self.mode_spi = Signal()
         self.mode_crc_disable = Signal()
+        self.spi_sel = Signal()
         self.cmd_in = Signal(48)
         self.cmd_in_last = Signal(6)
         self.cmd_in_crc_good = Signal()
         self.cmd_in_act = Signal()
-        self.spi_cs = Signal()
         self.data_in_act = Signal()
         self.data_in_busy = Signal()
         self.data_in_another = Signal()
@@ -80,6 +82,7 @@ class SDLinkLayer(Module):
         self.phy_odc = Signal(11)
         self.phy_istate = Signal(7)
         self.phy_ostate = Signal(7)
+        self.phy_spi_cnt = Signal(8)
         self.link_state = Signal(7)
         self.link_ddc = Signal(16)
         self.link_dc = Signal(16)
@@ -106,10 +109,10 @@ class SDLinkLayer(Module):
             i_sd_clk = ClockSignal("sd"),
             i_sd_cmd_i = self.cmd_t.i,
             o_sd_cmd_o = self.cmd_t.o,
-            o_sd_cmd_t = sd_cmd_t,
-            i_sd_dat_i = sd_dat_i,
-            o_sd_dat_o = sd_dat_o,
-            o_sd_dat_t = sd_dat_t,
+            o_sd_cmd_t = self.sd_cmd_t,
+            i_sd_dat_i = self.sd_dat_i,
+            o_sd_dat_o = self.sd_dat_o,
+            o_sd_dat_t = self.sd_dat_t,
             i_card_state = self.card_state,
             o_cmd_in = self.cmd_in,
             o_cmd_in_crc_good = self.cmd_in_crc_good,
@@ -128,6 +131,7 @@ class SDLinkLayer(Module):
             i_mode_4bit = self.mode_4bit,
             i_mode_spi = self.mode_spi,
             i_mode_crc_disable = self.mode_crc_disable,
+            o_spi_sel = self.spi_sel,
             i_data_out_reg = self.data_out_reg,
             i_data_out_src = self.data_out_src,
             i_data_out_len = self.data_out_len,
@@ -144,7 +148,8 @@ class SDLinkLayer(Module):
             o_idc = self.phy_idc,
             o_odc = self.phy_odc,
             o_istate = self.phy_istate,
-            o_ostate = self.phy_ostate
+            o_ostate = self.phy_ostate,
+            o_spi_cnt = self.phy_spi_cnt
         )
 
         self.specials += Instance("sd_link",
@@ -154,7 +159,7 @@ class SDLinkLayer(Module):
             i_phy_cmd_in = self.cmd_in,
             i_phy_cmd_in_crc_good = self.cmd_in_crc_good,
             i_phy_cmd_in_act = self.cmd_in_act,
-            i_phy_spi_cs = sd_dat_i[3],
+            i_phy_spi_sel = self.spi_sel,
             o_phy_data_in_act = self.data_in_act,
             i_phy_data_in_busy = self.data_in_busy,
             o_phy_data_in_stop = self.data_in_stop,
