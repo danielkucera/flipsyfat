@@ -13,7 +13,8 @@ class SDLinkLayer(Module):
         self.pads = pads        
 
         # Verilog sources from ProjectVault ORP
-        platform.add_source_dir(os.path.join(os.path.abspath(os.path.dirname(__file__)), "verilog"))
+        platform.add_sources(os.path.join(os.path.abspath(os.path.dirname(__file__)), "verilog"),
+            "sd_common.v", "sd_link.v", "sd_phy.v")
 
         # Adapt PHY tristate style.
         # It uses the opposite polarity, and requires individual control over D0-D3.
