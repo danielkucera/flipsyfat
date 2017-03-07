@@ -185,13 +185,13 @@ wire        data_out_done_s, data_out_done_r;
 synch_3       a(reset_n, reset_s, clk_50);
 synch_3 #(48) b(phy_cmd_in, cmd_in_s, clk_50);
 synch_3       c(phy_cmd_in_crc_good, cmd_in_crc_good_s, clk_50);
-synch_3       d(phy_cmd_in_act, cmd_in_act_s, clk_50, cmd_in_act_r);
+synch_3r      d(phy_cmd_in_act, cmd_in_act_s, clk_50, cmd_in_act_r);
 synch_3       e(phy_data_in_busy, data_in_busy_s, clk_50);
-synch_3       f(phy_data_in_done, data_in_done_s, clk_50, data_in_done_r);
+synch_3r      f(phy_data_in_done, data_in_done_s, clk_50, data_in_done_r);
 synch_3       g(phy_data_in_crc_good, data_in_crc_good_s, clk_50);
-synch_3       h(phy_resp_done, resp_done_s, clk_50, resp_done_r);
+synch_3r      h(phy_resp_done, resp_done_s, clk_50, resp_done_r);
 synch_3       i(phy_data_out_busy, data_out_busy_s, clk_50);
-synch_3       j(phy_data_out_done, data_out_done_s, clk_50, data_out_done_r);
+synch_3r      j(phy_data_out_done, data_out_done_s, clk_50, data_out_done_r);
 synch_3       k(phy_spi_sel, spi_sel_s, clk_50);
 
 
