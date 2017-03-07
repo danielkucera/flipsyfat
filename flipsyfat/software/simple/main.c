@@ -51,6 +51,6 @@ void fat_rootdir_entry(uint8_t* dest, unsigned index)
 
 void fat_data_block(uint8_t* dest, unsigned cluster, unsigned index)
 {
-    memset(dest, 'd', BLOCK_SIZE); 
+    memset(dest, 'Z', BLOCK_SIZE); 
     sprintf((char*) dest, "%04x+%x cluster\n", cluster, index);
 }
