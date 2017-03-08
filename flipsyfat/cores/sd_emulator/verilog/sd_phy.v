@@ -194,34 +194,7 @@ always @(negedge sd_clk or negedge reset_n or posedge spi_cs) begin
    end
 end
 
-
-// SPI selected only if chipselect asserted and we've seen enough clocks with CS deasserted.
-// The spec says to send at least 75; we'll look for 50.
-// Also make sure we aren't listening to our own SD-mode DAT output.
-// This signal is used by the link layer to switch modes during CMD0.
-reg spi_cshigh_ok = 0;
-reg [5:0] spi_cshigh_cnt = 0;
-assign spi_sel = spi_cshigh_ok & ~spi_cs & ~sd_dat_oe[3];
-
-always @(posedge sd_clk or negedge reset_n) begin
-
-   if(~reset_n) begin
-      spi_cshigh_ok <= 0;
-      spi_cshigh_cnt <= 0;
-   end else begin
-
-   // Look for runs with CS high, to arm SPI detection.
-   if (spi_cs) begin
-      spi_cshigh_cnt <= spi_cshigh_cnt + 6'b1;
-      if (spi_cshigh_cnt == 50)
-         spi_cshigh_ok <= 1'b1;
-   end
-   else begin
-      spi_cshigh_cnt <= 0;
-   end
-
-   end
-end
+assign spi_sel = ~spi_cs & ~sd_dat_oe[3];
 
 
 always @(posedge sd_clk or negedge reset_n) begin
@@ -252,7 +225,7 @@ always @(posedge sd_clk or negedge reset_n) begin
    end
    ST_IDLE: begin
       // falling edge of CMD, and output state not driving
-      if((~sd_cmd & sd_cmd_last) & ~sd_cmd_oe) begin //~resp_act_s) begin
+      if((~sd_cmd & sd_cmd_last) & (mode_spi_s | ~sd_cmd_oe)) begin
          // start bit 0 of command
          
          cmd_in_latch <= 0;
@@ -431,7 +404,7 @@ always @(negedge sd_clk or negedge reset_n) begin
       if (mode_spi_s) begin
          // SPI-mode responses
          case(resp_type_s)
-         RESP_R1: begin
+         RESP_R1, RESP_BAD: begin
             // One byte
             if(odc==7) ostate <= ST_RESP_WRITE_END;
          end

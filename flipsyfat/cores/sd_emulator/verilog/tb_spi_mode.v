@@ -24,24 +24,60 @@ initial begin
     for (n=0; n<10; n++)
        spi_byte(8'hFF);
 
-    for (n=0; n<4; n++) begin
-        #1000
-        flipsyfat_sdemu_sd_dat_i[3] = 1'b0; 
-        spi_byte(8'h40);
-        spi_byte(8'h00);
-        spi_byte(8'h00);
-        spi_byte(8'h00);
-        spi_byte(8'h00);
-        spi_byte(8'h95);
+    // CMD0
+    #1000
+    flipsyfat_sdemu_sd_dat_i[3] = 1'b0; 
+    spi_byte(8'hFF);
+    spi_byte(8'h40);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h95);
+    for (n=0; n<10; n++)
+       spi_byte(8'hFF);
+    flipsyfat_sdemu_sd_dat_i[3] = 1'b1; 
 
-        spi_byte(8'hFF);
-        spi_byte(8'hFF);
-        spi_byte(8'hFF);
-        spi_byte(8'hFF);
-        spi_byte(8'hFF);
-        spi_byte(8'hFF);
-        flipsyfat_sdemu_sd_dat_i[3] = 1'b1; 
-    end    
+    // CMD8
+    #1000
+    flipsyfat_sdemu_sd_dat_i[3] = 1'b0; 
+    spi_byte(8'h48);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h01);
+    spi_byte(8'hAA);
+    spi_byte(8'h87);
+    for (n=0; n<10; n++)
+       spi_byte(8'hFF);
+    flipsyfat_sdemu_sd_dat_i[3] = 1'b1; 
+
+    // CMD58
+    #1000
+    flipsyfat_sdemu_sd_dat_i[3] = 1'b0; 
+    spi_byte(8'hFF);
+    spi_byte(8'h7A);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'hfd);
+    for (n=0; n<30; n++)
+       spi_byte(8'hFF);
+    flipsyfat_sdemu_sd_dat_i[3] = 1'b1; 
+
+    // CMD13
+    #1000
+    flipsyfat_sdemu_sd_dat_i[3] = 1'b0; 
+    spi_byte(8'hFF);
+    spi_byte(8'h4D);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h0D);
+    for (n=0; n<10; n++)
+       spi_byte(8'hFF);
+    flipsyfat_sdemu_sd_dat_i[3] = 1'b1; 
 
     #1000  $finish;
 end
