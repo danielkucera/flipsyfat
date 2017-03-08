@@ -134,9 +134,6 @@ parameter [6:0] DST_RESET      = 'd0,
                 DST_DATA_IN_5  = 'd25,
                 DST_LAST       = 'd127;
 
-// Would we be entering SPI mode if CMD0 is happening?
-wire spi_mode_in_cmd0 = phy_mode_spi | spi_sel_s;
-
 wire spi_parameter_error_flag = card_status[STAT_ADDRESS_ERROR] | 
                                 card_status[STAT_BLOCK_LEN_ERROR] |
                                 card_status[STAT_ERASE_PARAM];
@@ -248,7 +245,7 @@ always @(posedge clk_50) begin
       phy_data_out_act <= 0;
       phy_data_out_stop <= 0;
       phy_mode_4bit <= 0;   
-      phy_mode_crc_disable <= 0;
+      phy_mode_crc_disable <= phy_mode_spi;
 
       block_read_act <= 0;
       block_read_num <= 0;
@@ -256,8 +253,9 @@ always @(posedge clk_50) begin
       block_write_act <= 0;
       block_write_num <= 0;
       block_preerase_num <= 0;
-      
-      state <= ST_IDLE;
+
+      // In SPI mode, reset gets an R1 response      
+      state <= phy_mode_spi ? ST_CMD_RESP_0 : ST_IDLE;
    end
    ST_IDLE: begin
       // rising edge + crc is good
@@ -265,7 +263,7 @@ always @(posedge clk_50) begin
          phy_resp_act <= 0;
          if(cmd_in_crc_good_s) begin
             // new command
-            cmd_in_latch <= phy_cmd_in; //cmd_in_s;
+            cmd_in_latch <= phy_cmd_in;
             card_status[STAT_COM_CRC_ERROR] <= 0;
             card_status[STAT_ILLEGAL_COMMAND] <= 0;
             state <= ST_CMD_ACT;
@@ -290,15 +288,21 @@ always @(posedge clk_50) begin
          case(cmd_in_cmd)
          CMD0_GO_IDLE: begin
             if(card_state != CARD_INA) begin
-               // reset everything to default, optionally enter SPI mode.
-               // In SPI, the CRC on future commands won't be checked by default
-               // but this can be reconfigured with CMD59.
-               resp_type <= spi_mode_in_cmd0 ? RESP_R1 : RESP_NONE;
-               state <= spi_mode_in_cmd0 ? ST_CMD_RESP_0 : ST_RESET;
+               // reset to default, optionally enter SPI mode.
+               state <= ST_RESET;
                data_state <= DST_RESET;
-               phy_mode_spi <= spi_mode_in_cmd0;
-               phy_mode_crc_disable <= spi_mode_in_cmd0;
+               if (phy_mode_spi | spi_sel_s) begin
+                  phy_mode_spi <= 1'b1;
+                  resp_type <= RESP_R1;
+               end
+               else begin
+                  resp_type <= RESP_NONE;
+               end
             end
+         end
+         CMD1_SEND_OP_COND: begin
+            // Includes Host Capacity Support bit. We don't care.
+            resp_type <= RESP_R1;
          end
          CMD2_ALL_SEND_CID: case(card_state)
             CARD_READY: begin
@@ -960,6 +964,7 @@ always @(posedge clk_50) begin
       state <= ST_RESET;
       data_state <= DST_RESET;
       phy_mode_spi <= 0;
+      phy_mode_crc_disable <= 0;
    end    
 end
 

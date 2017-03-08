@@ -1,4 +1,5 @@
 parameter [5:0] CMD0_GO_IDLE         = 'd0,
+                CMD1_SEND_OP_COND    = 'd1,
                 CMD2_ALL_SEND_CID    = 'd2,
                 CMD3_SEND_REL_ADDR   = 'd3,
                 CMD4_SET_DSR         = 'd4,

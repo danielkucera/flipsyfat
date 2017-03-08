@@ -24,9 +24,23 @@ initial begin
     for (n=0; n<10; n++)
        spi_byte(8'hFF);
 
-    // CMD0
+    // Broken CMD0 with bad start bit framing (as sent by Propeller library)
     #1000
-    flipsyfat_sdemu_sd_dat_i[3] = 1'b0; 
+    spi_cs(1'b0);
+    spi_byte(8'h00);
+    spi_byte(8'h40);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h95);
+    for (n=0; n<10; n++)
+       spi_byte(8'hFF);
+    spi_cs(1'b1);
+
+    // CMD0 with harmless FF padding
+    #1000
+    spi_cs(1'b0);
     spi_byte(8'hFF);
     spi_byte(8'h40);
     spi_byte(8'h00);
@@ -36,11 +50,11 @@ initial begin
     spi_byte(8'h95);
     for (n=0; n<10; n++)
        spi_byte(8'hFF);
-    flipsyfat_sdemu_sd_dat_i[3] = 1'b1; 
+    spi_cs(1'b1);
 
     // CMD8
     #1000
-    flipsyfat_sdemu_sd_dat_i[3] = 1'b0; 
+    spi_cs(1'b0);
     spi_byte(8'h48);
     spi_byte(8'h00);
     spi_byte(8'h00);
@@ -49,25 +63,63 @@ initial begin
     spi_byte(8'h87);
     for (n=0; n<10; n++)
        spi_byte(8'hFF);
-    flipsyfat_sdemu_sd_dat_i[3] = 1'b1; 
+    spi_cs(1'b1);
 
     // CMD58
     #1000
-    flipsyfat_sdemu_sd_dat_i[3] = 1'b0; 
+    spi_cs(1'b0);
     spi_byte(8'hFF);
     spi_byte(8'h7A);
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h00);
-    spi_byte(8'hfd);
     for (n=0; n<30; n++)
        spi_byte(8'hFF);
-    flipsyfat_sdemu_sd_dat_i[3] = 1'b1; 
+    spi_cs(1'b1);
+
+    // CMD55
+    #1000
+    spi_cs(1'b0);
+    spi_byte(8'hFF);
+    spi_byte(8'h77);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    for (n=0; n<5; n++)
+       spi_byte(8'hFF);
+    spi_cs(1'b1);
+
+    // ACMD41
+    #1000
+    spi_cs(1'b0);
+    spi_byte(8'hFF);
+    spi_byte(8'h69);
+    spi_byte(8'h40);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    for (n=0; n<5; n++)
+       spi_byte(8'hFF);
+    spi_cs(1'b1);
+
+    // CMD1
+    #1000
+    spi_cs(1'b0);
+    spi_byte(8'hFF);
+    spi_byte(8'h41);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    for (n=0; n<5; n++)
+       spi_byte(8'hFF);
+    spi_cs(1'b1);
 
     // CMD13
     #1000
-    flipsyfat_sdemu_sd_dat_i[3] = 1'b0; 
+    spi_cs(1'b0);
     spi_byte(8'hFF);
     spi_byte(8'h4D);
     spi_byte(8'h00);
@@ -77,10 +129,18 @@ initial begin
     spi_byte(8'h0D);
     for (n=0; n<10; n++)
        spi_byte(8'hFF);
-    flipsyfat_sdemu_sd_dat_i[3] = 1'b1; 
+    spi_cs(1'b1);
 
     #1000  $finish;
 end
+
+
+task spi_cs;
+    input state;
+    begin
+        flipsyfat_sdemu_sd_dat_i[3] = state;
+    end
+endtask
 
 task spi_byte;
     input [7:0] mosibyte;
