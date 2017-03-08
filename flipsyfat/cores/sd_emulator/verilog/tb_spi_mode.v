@@ -48,33 +48,47 @@ initial begin
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h95);
-    for (n=0; n<10; n++)
+    for (n=0; n<4; n++)
        spi_byte(8'hFF);
     spi_cs(1'b1);
 
     // CMD8
     #1000
     spi_cs(1'b0);
+    spi_byte(8'hFF);
     spi_byte(8'h48);
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h01);
     spi_byte(8'hAA);
     spi_byte(8'h87);
-    for (n=0; n<10; n++)
+    for (n=0; n<8; n++)
        spi_byte(8'hFF);
     spi_cs(1'b1);
 
-    // CMD58
+    // CMD55
     spi_byte(8'hFF);
     spi_cs(1'b0);
     spi_byte(8'hFF);
-    spi_byte(8'h7A);
+    spi_byte(8'h77);
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h00);
-    for (n=0; n<30; n++)
+    for (n=0; n<5; n++)
+       spi_byte(8'hFF);
+    spi_cs(1'b1);
+
+    // ACMD41
+    spi_byte(8'hFF);
+    spi_cs(1'b0);
+    spi_byte(8'hFF);
+    spi_byte(8'h69);
+    spi_byte(8'h40);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    for (n=0; n<5; n++)
        spi_byte(8'hFF);
     spi_cs(1'b1);
 

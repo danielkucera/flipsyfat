@@ -553,6 +553,8 @@ always @(posedge clk_50) begin
             end else resp_type <= RESP_NONE;
             if(phy_mode_spi) begin
                resp_type <= RESP_R1;
+               card_appcmd <= 1;
+               card_status[STAT_APP_CMD] <= 1;
             end
          end
          //CMD56_GEN_CMD: begin
