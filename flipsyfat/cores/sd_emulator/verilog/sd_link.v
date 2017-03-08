@@ -74,6 +74,7 @@ module sd_link (
    output reg          err_cmd_crc,
 
    output wire [5:0]   cmd_in_cmd,
+   output reg  [31:0]  card_status,
    output reg  [15:0]  dc,
    output reg  [15:0]  ddc,
    output reg  [6:0]   state
@@ -91,10 +92,8 @@ wire [6:0]   cmd_in_crc = cmd_in_latch[7:1];
 reg  [3:0]   card_state;
 assign       link_card_state = card_state;
 reg  [3:0]   card_state_next;
-reg  [3:0]   card_acmd41_count;
 reg  [2:0]   card_erase_state;
 reg          card_appcmd;
-reg  [31:0]  card_status;
 reg  [127:0] card_sd_status;
 reg  [127:0] card_csd;
 reg  [127:0] card_cid;
@@ -205,7 +204,6 @@ always @(posedge clk_50) begin
       err_unhandled_cmd <= 0;
       err_cmd_crc <= 0;
       card_erase_state <= 0;
-      card_acmd41_count <= 0;
       card_blocks_written <= 0;
       card_appcmd <= 0;
       card_rca <= 16'h0;
@@ -300,10 +298,11 @@ always @(posedge clk_50) begin
                end
             end
          end
-         CMD1_SEND_OP_COND: begin
-            // Includes Host Capacity Support bit. We don't care.
+         CMD1_SEND_OP_COND: case(card_state)
+            CARD_IDLE: begin
             resp_type <= RESP_R1;
-         end
+            end
+         endcase
          CMD2_ALL_SEND_CID: case(card_state)
             CARD_READY: begin
             resp_type <= RESP_R2;
@@ -606,23 +605,18 @@ always @(posedge clk_50) begin
             block_preerase_num[22:0] <= cmd_in_arg[22:0];
             end
          endcase
-         ACMD41_SEND_OP_COND: case(card_state)
-            CARD_IDLE: begin
-            resp_type <= RESP_R3;
-            card_acmd41_count <= card_acmd41_count + 1'b1;
-            if(cmd_in_arg[23:0] == 24'h0) begin
-               // ocr is zero, this is a query.
-               
-            end else
-            if(cmd_in_arg[30]) begin
-               // is host SDHC compatible? otherwise we'll never be ready
-               if(card_acmd41_count > 2) begin
-                  card_ocr[OCR_POWERED_UP] <= 1;
-                  card_state_next <= CARD_READY;
+         ACMD41_SEND_OP_COND: begin
+            case(card_state)
+               CARD_IDLE: begin
+               resp_type <= RESP_R3;
+               card_ocr[OCR_POWERED_UP] <= 1;
+               card_state_next <= CARD_READY;
                end
-            end 
+            endcase
+            if (phy_mode_spi) begin
+               resp_type <= RESP_R1;
             end
-         endcase
+         end
          ACMD42_SET_CARD_DET: case(card_state)
             // card detect pullup is unsupported
             CARD_TRAN: resp_type <= RESP_R1;
@@ -663,14 +657,13 @@ always @(posedge clk_50) begin
          state <= ST_IDLE;
       end
       RESP_BAD: begin
-         // illegal
-         card_status[STAT_ILLEGAL_COMMAND] <= 1;
          if (phy_mode_spi) begin
             // SPI mode; R1 response with 'illegal command' bit already set
             phy_resp_out <= {spi_status_word[15:11], 1'b1, spi_status_word[9:8], 128'h0};            
          end
          else begin
             // SD mode; no response, bit set for later
+            card_status[STAT_ILLEGAL_COMMAND] <= 1;
             state <= ST_IDLE;
          end
       end

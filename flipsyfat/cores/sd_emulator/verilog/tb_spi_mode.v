@@ -66,7 +66,7 @@ initial begin
     spi_cs(1'b1);
 
     // CMD58
-    #1000
+    spi_byte(8'hFF);
     spi_cs(1'b0);
     spi_byte(8'hFF);
     spi_byte(8'h7A);
@@ -79,7 +79,7 @@ initial begin
     spi_cs(1'b1);
 
     // CMD55
-    #1000
+    spi_byte(8'hFF);
     spi_cs(1'b0);
     spi_byte(8'hFF);
     spi_byte(8'h77);
@@ -92,7 +92,7 @@ initial begin
     spi_cs(1'b1);
 
     // ACMD41
-    #1000
+    spi_byte(8'hFF);
     spi_cs(1'b0);
     spi_byte(8'hFF);
     spi_byte(8'h69);
@@ -105,7 +105,7 @@ initial begin
     spi_cs(1'b1);
 
     // CMD1
-    #1000
+    spi_byte(8'hFF);
     spi_cs(1'b0);
     spi_byte(8'hFF);
     spi_byte(8'h41);
@@ -118,7 +118,7 @@ initial begin
     spi_cs(1'b1);
 
     // CMD13
-    #1000
+    spi_byte(8'hFF);
     spi_cs(1'b0);
     spi_byte(8'hFF);
     spi_byte(8'h4D);
