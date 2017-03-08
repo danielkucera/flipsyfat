@@ -559,8 +559,13 @@ always @(posedge clk_50) begin
          end
          //CMD56_GEN_CMD: begin
          //end
-         //CMD59_CRC_ON_OFF: begin
-         //end
+         CMD58_READ_OCR: begin
+            resp_type <= RESP_R3;
+         end
+         CMD59_CRC_ON_OFF: begin
+            phy_mode_crc_disable <= ~cmd_in_arg[0];
+            resp_type <= RESP_R1;
+         end
          default: begin
             err_unhandled_cmd <= 1;
             if(cmd_in_cmd == 6'd1) err_unhandled_cmd <= 0; // CMD1 for SPI cards

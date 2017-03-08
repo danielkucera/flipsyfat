@@ -27,12 +27,14 @@ parameter [5:0] CMD0_GO_IDLE         = 'd0,
                 CMD55_APP_CMD        = 'd55,
                 CMD56_GEN_CMD        = 'd56,
 
+                CMD58_READ_OCR       = 'd58,
+                CMD59_CRC_ON_OFF     = 'd59,
+
                 // unsupported
                 CMD28_SET_WRITE_PROT = 'd28,
                 CMD29_CLR_WRITE_PROT = 'd29,
                 CMD30_SND_WRITE_PROT = 'd30,
                 CMD40_INVALID        = 'd40,
-                CMD59_CRC_ON_OFF     = 'd59,
                
                 CMD_LAST             = 'd63;
                
