@@ -690,7 +690,9 @@ always @(posedge clk_50) begin
             {2'b00, 6'b111111, cmd_in_cmd == CMD9_SEND_CSD ? card_csd[127:1] : card_cid[127:1], 1'b1};
       end
       RESP_R3: begin
-         phy_resp_out <= {2'b00, 6'b111111, card_ocr, 8'hFF, 88'h0};
+         phy_resp_out <= phy_mode_spi ?
+            {spi_status_word[15:8], card_ocr, 96'h0 } :
+            {2'b00, 6'b111111, card_ocr, 8'hFF, 88'h0};
       end
       RESP_R6: begin
          phy_resp_out <= {2'b00, 6'b000011, card_rca, {card_status[23:22], card_status[19], card_status[12:0]}, 8'h1, 88'h0};
