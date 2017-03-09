@@ -51,10 +51,6 @@ class Flipsyfat(BaseSoC):
         self.io_activity = (self.sdemu.ll.block_read_act | self.sdemu.ll.block_write_act )
         self.sync += self.platform.request("user_led").eq(self.io_activity)
  
-        debug = self.platform.request("debug")
-        self.comb += debug[0].eq(self.sdemu.ll.spi_cs)
-        self.comb += debug[1].eq(self.sdemu.ll.mode_spi)
-
 
 def main():
     parser = argparse.ArgumentParser(description="Flipsyfat port to the Papilio Pro")
