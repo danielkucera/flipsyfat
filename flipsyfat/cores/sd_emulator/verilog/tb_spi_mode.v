@@ -127,6 +127,20 @@ initial begin
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h00);
+    for (n=0; n<20; n++)
+       spi_byte(8'hFF);
+    spi_cs(1'b1);
+
+    // CMD9
+    spi_byte(8'hFF);
+    spi_cs(1'b0);
+    spi_byte(8'hFF);
+    spi_byte(8'h49);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h0D);
     for (n=0; n<40; n++)
        spi_byte(8'hFF);
     spi_cs(1'b1);
