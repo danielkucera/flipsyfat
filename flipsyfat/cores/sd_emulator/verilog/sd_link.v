@@ -133,13 +133,10 @@ parameter [6:0] DST_RESET      = 'd0,
                 DST_DATA_IN_5  = 'd25,
                 DST_LAST       = 'd127;
 
-wire spi_parameter_error_flag = card_status[STAT_ADDRESS_ERROR] | 
-                                card_status[STAT_BLOCK_LEN_ERROR] |
-                                card_status[STAT_ERASE_PARAM];
 wire [15:0] spi_status_word = {
    // R1
    1'b0,
-   spi_parameter_error_flag,
+   card_status[STAT_ADDRESS_ERROR] | card_status[STAT_BLOCK_LEN_ERROR] | card_status[STAT_ERASE_PARAM],
    card_status[STAT_ADDRESS_ERROR],
    card_status[STAT_ERASE_SEQ_ERROR],
    card_status[STAT_COM_CRC_ERROR],
@@ -158,6 +155,8 @@ wire [15:0] spi_status_word = {
 };
 
 reg data_op_send_scr;
+reg data_op_send_cid;
+reg data_op_send_csd;
 reg data_op_send_sdstatus;
 reg data_op_send_function;
 reg data_op_send_written;
@@ -229,6 +228,8 @@ always @(posedge clk_50) begin
       card_function_check <= 24'h0;   
    
       data_op_send_scr <= 0;   
+      data_op_send_cid <= 0;   
+      data_op_send_csd <= 0;   
       data_op_send_sdstatus <= 0;
       data_op_send_function <= 0;
       data_op_send_written <= 0;
@@ -397,6 +398,7 @@ always @(posedge clk_50) begin
             end else resp_type <= RESP_NONE;
             if(phy_mode_spi) begin
                resp_type <= RESP_R1;
+               data_op_send_csd <= 1;
             end
          end
          CMD10_SEND_CID: begin
@@ -409,6 +411,7 @@ always @(posedge clk_50) begin
             end else resp_type <= RESP_NONE;
             if(phy_mode_spi) begin
                resp_type <= RESP_R1;
+               data_op_send_cid <= 1;
             end
          end
          CMD12_STOP: case(card_state)
@@ -666,13 +669,13 @@ always @(posedge clk_50) begin
          state <= ST_IDLE;
       end
       RESP_BAD: begin
+         card_status[STAT_ILLEGAL_COMMAND] <= 1;
          if (phy_mode_spi) begin
             // SPI mode; R1 response with 'illegal command' bit already set
             phy_resp_out <= {spi_status_word[15:11], 1'b1, spi_status_word[9:8], 128'h0};            
          end
          else begin
-            // SD mode; no response, bit set for later
-            card_status[STAT_ILLEGAL_COMMAND] <= 1;
+            // SD mode
             state <= ST_IDLE;
          end
       end
@@ -687,9 +690,7 @@ always @(posedge clk_50) begin
             {2'b00, 6'b111111, cmd_in_cmd == CMD9_SEND_CSD ? card_csd[127:1] : card_cid[127:1], 1'b1};
       end
       RESP_R3: begin
-         phy_resp_out <= phy_mode_spi ?
-            {spi_status_word[15:8], card_ocr, 96'h0} :
-            {2'b00, 6'b111111, card_ocr, 8'hFF, 88'h0};
+         phy_resp_out <= {2'b00, 6'b111111, card_ocr, 8'hFF, 88'h0};
       end
       RESP_R6: begin
          phy_resp_out <= {2'b00, 6'b000011, card_rca, {card_status[23:22], card_status[19], card_status[12:0]}, 8'h1, 88'h0};
@@ -734,6 +735,29 @@ always @(posedge clk_50) begin
          endcase
          card_state <= card_state_next;
          state <= ST_IDLE;
+
+         // Clear bits for SPI status responses
+         if (phy_mode_spi) begin
+            // R1
+            card_status[STAT_BLOCK_LEN_ERROR] <= 0;
+            card_status[STAT_ADDRESS_ERROR] <= 0;
+            card_status[STAT_ERASE_SEQ_ERROR] <= 0;
+            card_status[STAT_COM_CRC_ERROR] <= 0;
+            card_status[STAT_ILLEGAL_COMMAND] <= 0;
+            card_status[STAT_ERASE_RESET] <= 0;
+            if (phy_resp_type == RESP_R2) begin
+               card_status[STAT_OUT_OF_RANGE] <= 0;
+               card_status[STAT_CSD_OVERWRITE] <= 0;
+               card_status[STAT_ERASE_PARAM] <= 0;
+               card_status[STAT_WP_VIOLATION] <= 0;
+               card_status[STAT_CARD_ECC_FAILED] <= 0;
+               card_status[STAT_CC_ERROR] <= 0;
+               card_status[STAT_ERROR] <= 0;
+               card_status[STAT_WP_ERASE_SKIP] <= 0;
+               card_status[STAT_LOCK_UNLOCK_FAILED] <= 0;
+               card_status[STAT_CARD_IS_LOCKED] <= 0;
+            end
+         end
       end
    end
    endcase
@@ -758,7 +782,7 @@ always @(posedge clk_50) begin
          // for data receive ops
          data_state <= DST_DATA_IN_0;
       end else   
-      if(   data_op_send_scr | data_op_send_sdstatus | 
+      if(   data_op_send_scr | data_op_send_sdstatus | data_op_send_cid | data_op_send_csd |
          data_op_send_function | data_op_send_written | data_op_send_block_queue ) begin
          
          // move to next state once response is processing
@@ -778,7 +802,7 @@ always @(posedge clk_50) begin
       ddc <= 0;
       
       // process these data ops while response starts to send
-      if(   data_op_send_scr | data_op_send_sdstatus | 
+      if(   data_op_send_scr | data_op_send_sdstatus | data_op_send_cid | data_op_send_csd |
          data_op_send_function | data_op_send_written | data_op_send_block ) begin
          
          phy_data_out_src <= 1; // default: send from register
@@ -808,6 +832,16 @@ always @(posedge clk_50) begin
             phy_data_out_src <= 0; // send data from bram
             phy_data_out_len <= 512;
             data_state <= DST_DATA_OUT_5;
+         end
+         if(data_op_send_cid) begin
+            data_op_send_cid <= 0;
+            phy_data_out_len <= 16;
+            phy_data_out_reg <= {card_cid, 384'h0};
+         end
+         if(data_op_send_csd) begin
+            data_op_send_csd <= 0;
+            phy_data_out_len <= 16;
+            phy_data_out_reg <= {card_csd, 384'h0};
          end
       end
    end

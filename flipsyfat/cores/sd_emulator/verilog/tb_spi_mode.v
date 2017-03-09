@@ -11,7 +11,7 @@ reg [3:0] flipsyfat_sdemu_sd_dat_i = 4'b1111;
 initial forever #2 sys_clk = ~sys_clk;
 initial forever #9 sdemu_sd_clk = ~sdemu_sd_clk;
 
-reg [7:0] n;
+reg [31:0] n;
 
 initial begin
 
@@ -159,6 +159,76 @@ initial begin
        spi_byte(8'hFF);
     spi_cs(1'b1);
 
+    // CMD10
+    spi_byte(8'hFF);
+    spi_cs(1'b0);
+    spi_byte(8'hFF);
+    spi_byte(8'h4A);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    for (n=0; n<40; n++)
+       spi_byte(8'hFF);
+    spi_cs(1'b1);
+
+    // CMD16
+    spi_byte(8'hFF);
+    spi_cs(1'b0);
+    spi_byte(8'hFF);
+    spi_byte(8'h50);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h02);
+    spi_byte(8'h00);
+    for (n=0; n<10; n++)
+       spi_byte(8'hFF);
+    spi_cs(1'b1);
+
+    // CMD17, block 0 read
+    spi_byte(8'hFF);
+    spi_cs(1'b0);
+    spi_byte(8'hFF);
+    spi_byte(8'h51);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    for (n=0; n<550; n++)
+       spi_byte(8'hFF);
+    spi_cs(1'b1);
+
+    // CMD17, block 3F read
+    spi_byte(8'hFF);
+    spi_cs(1'b0);
+    spi_byte(8'hFF);
+    spi_byte(8'h51);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h3f);
+    for (n=0; n<550; n++)
+       spi_byte(8'hFF);
+    spi_cs(1'b1);
+
+    // CMD24, block 3F write
+    spi_byte(8'hFF);
+    spi_cs(1'b0);
+    spi_byte(8'hFF);
+    spi_byte(8'h58);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h3f);
+    for (n=0; n<10; n++)
+       spi_byte(8'hff);
+    spi_byte(8'hfe);
+    for (n=0; n<512; n++)
+       spi_byte(n[7:0]);
+    for (n=0; n<10; n++)
+       spi_byte(8'hff); 
+    spi_cs(1'b1);
+
     #1000  $finish;
 end
 
@@ -173,15 +243,17 @@ endtask
 task spi_byte;
     input [7:0] mosibyte;
     reg [7:0] misobyte;
+    reg [7:0] misobyte_next;
     reg [7:0] i;
     begin
-        misobyte = 0;
+        misobyte_next = 0;
         for (i = 0; i < 8; i++) begin
             @(negedge sdemu_sd_clk);
             flipsyfat_sdemu_cmd_t_i = mosibyte[7-i];
             @(posedge sdemu_sd_clk);
-            misobyte[7-i] = flipsyfat_sdemu_sd_dat_o[0];
+            misobyte_next[7-i] = flipsyfat_sdemu_sd_dat_o[0];
         end
+        misobyte = misobyte_next;
         $display("SPI %x -> %x", mosibyte, misobyte);
     end
 endtask
@@ -249,8 +321,9 @@ wire [31:0] flipsyfat_sdemu_block_write_num;
 wire [22:0] flipsyfat_sdemu_block_preerase_num;
 wire [31:0] flipsyfat_sdemu_block_erase_start;
 wire [31:0] flipsyfat_sdemu_block_erase_end;
-wire flipsyfat_sdemu_block_read_go;
-wire flipsyfat_sdemu_block_write_done;
+
+reg flipsyfat_sdemu_block_read_go = 1'b0;
+reg flipsyfat_sdemu_block_write_done = 1'b0;
 
 reg [31:0] rd_buffer[0:127];
 reg [6:0] memadr_5;
@@ -368,5 +441,14 @@ sd_link sd_link(
     .phy_resp_type(flipsyfat_sdemu_resp_type),
     .state(flipsyfat_sdemu_link_state)
 );
+
+// Trivial sd-mgr layer
+initial for (n = 0; n < 128; n++) rd_buffer[n] = 32'hABCD4567;
+always @(posedge flipsyfat_sdemu_block_read_act) begin
+    #2000
+    flipsyfat_sdemu_block_read_go = 1;
+    #40
+    flipsyfat_sdemu_block_read_go = 0;
+end
 
 endmodule
