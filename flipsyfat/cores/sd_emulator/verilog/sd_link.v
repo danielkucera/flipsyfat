@@ -622,6 +622,8 @@ always @(posedge clk_50) begin
             endcase
             if (phy_mode_spi) begin
                resp_type <= RESP_R1;
+               card_ocr[OCR_POWERED_UP] <= 1;
+               card_state_next <= CARD_READY;
             end
          end
          ACMD42_SET_CARD_DET: case(card_state)
