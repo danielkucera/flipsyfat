@@ -99,4 +99,6 @@ parameter [3:0] CARD_IDLE   = 'd0,
                 CARD_RESVD5 = 'd14,
                 CARD_RESVD6 = 'd15;
 
-parameter [7:0] SPI_START_TOKEN  = 'hFE;
+parameter [7:0] SPI_START_TOKEN       = 'hFE,
+                SPI_START_BLOCK_TOKEN = 'hFC,
+                SPI_STOP_TRAN_TOKEN   = 'hFD;

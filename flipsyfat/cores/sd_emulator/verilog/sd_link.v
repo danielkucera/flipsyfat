@@ -745,6 +745,7 @@ always @(posedge clk_50) begin
             card_status[STAT_COM_CRC_ERROR] <= 0;
             card_status[STAT_ILLEGAL_COMMAND] <= 0;
             card_status[STAT_ERASE_RESET] <= 0;
+            // R2
             if (phy_resp_type == RESP_R2) begin
                card_status[STAT_OUT_OF_RANGE] <= 0;
                card_status[STAT_CSD_OVERWRITE] <= 0;

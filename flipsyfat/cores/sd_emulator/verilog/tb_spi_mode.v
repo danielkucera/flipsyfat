@@ -225,7 +225,7 @@ initial begin
     spi_byte(8'hfe);
     for (n=0; n<512; n++)
        spi_byte(n[7:0]);
-    for (n=0; n<10; n++)
+    for (n=0; n<40; n++)
        spi_byte(8'hff); 
     spi_cs(1'b1);
 
@@ -444,11 +444,21 @@ sd_link sd_link(
 
 // Trivial sd-mgr layer
 initial for (n = 0; n < 128; n++) rd_buffer[n] = 32'hABCD4567;
+
 always @(posedge flipsyfat_sdemu_block_read_act) begin
+    $display("Block Read");
     #2000
     flipsyfat_sdemu_block_read_go = 1;
     #40
     flipsyfat_sdemu_block_read_go = 0;
+end
+
+always @(posedge flipsyfat_sdemu_block_write_act) begin
+    $display("Block Write");
+    #2000
+    flipsyfat_sdemu_block_write_done = 1;
+    #40
+    flipsyfat_sdemu_block_write_done = 0;
 end
 
 endmodule

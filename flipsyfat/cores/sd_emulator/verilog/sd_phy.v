@@ -88,7 +88,7 @@ reg  sd_cmd_oe;
 wire sd_cmd = sd_cmd_i;
 assign sd_cmd_t = mode_spi_s ? 1'b1 : !sd_cmd_oe;
 assign sd_cmd_o = sd_cmd_out;
- 
+
 wire spi_miso;
 wire spi_mosi;
 wire spi_cs;
@@ -100,6 +100,7 @@ wire [3:0] sd_dat = sd_dat_i;
 assign sd_dat_o = mode_spi_s ? { 3'b000, spi_miso } : sd_dat_out;
 wire [3:0] spi_dat_oe = { 3'b000, ~spi_cs };
 assign sd_dat_t = mode_spi_s ? ~spi_dat_oe : (card_state_s == CARD_DIS ? 4'b1111 : ~sd_dat_oe);
+wire sd_spi_dat = mode_spi_s ? sd_cmd : sd_dat[0];
 
 assign spi_miso = sd_cmd_oe ? sd_cmd_out : (sd_dat_oe[0] ? sd_dat_out[0] : 1'b1);
 assign spi_mosi = sd_cmd_i;
@@ -154,7 +155,9 @@ reg  [15:0] dodc;
 
 reg  [6:0]  distate;
 reg  [6:0]  dostate;
-   
+
+reg  [7:0]  spi_di_token;
+
 reg  [31:0] dout_buf;
 wire [3:0]  dout_4bit   = data_out_src ? data_out_reg_latch[511:508] : dout_buf[31:28];
 wire [0:0]  dout_1bit   = data_out_src ? data_out_reg_latch[511] : dout_buf[31];
@@ -227,15 +230,18 @@ always @(posedge sd_clk or negedge reset_n) begin
       if (idc == 60) istate <= ST_IDLE;
    end
    ST_IDLE: begin
-      // falling edge of CMD, and output state not driving
-      if((~sd_cmd & sd_cmd_last) & (mode_spi_s | ~sd_cmd_oe)) begin
-         // start bit 0 of command
-         
-         cmd_in_latch <= 0;
-         cmd_in_act <= 0;
-         crc7_in <= 0;
-         idc <= 0;
-         istate <= ST_CMD_READ;
+      // In SPI mode, the data FSM takes priority over command
+      if (~mode_spi_s | ~data_in_busy) begin
+         // falling edge of CMD, and output state not driving
+         if((~sd_cmd & sd_cmd_last) & (mode_spi_s | ~sd_cmd_oe)) begin
+            // start bit 0 of command
+            
+            cmd_in_latch <= 0;
+            cmd_in_act <= 0;
+            crc7_in <= 0;
+            idc <= 0;
+            istate <= ST_CMD_READ;
+         end
       end
    end
    ST_CMD_READ: begin
@@ -273,29 +279,55 @@ always @(posedge sd_clk or negedge reset_n) begin
    ST_RESET: begin
       do_crc_token <= 0;
       distate <= ST_IDLE;
+      data_in_busy <= 0;
+      data_in_done <= 0;
+      spi_di_token <= 0;
    end
    ST_IDLE: begin
       if(data_in_act_r | (data_in_another_s & ~data_in_stop_s)) begin
          data_in_busy <= 1;
          data_in_done <= 0;
+         spi_di_token <= 0;
          distate <= ST_DATA_READ;
       end
    end
    ST_DATA_READ: begin
-      // falling edge of DAT0, and output state not driving
-      if((~sd_dat[0] & sd_dat_last) & ~sd_dat_oe[0]) begin 
-         // start bit 0 of data packet
-         crc16_in3 <= 0;
-         crc16_in2 <= 0;
-         crc16_in1 <= 0;
-         crc16_in0 <= 0;
-         didc <= 0;
-         bram_wr_sd_addr <= -1;
-         distate <= ST_DATA_READ_1;
+      if (mode_spi_s) begin
+         // SPI mode: sync to byte framing, receive start token.
+         spi_di_token <= { spi_di_token[6:0], sd_cmd };
+         if (spi_cnt[2:0] == 3'd7) case ({ spi_di_token[6:0], sd_cmd })
+         SPI_START_TOKEN, SPI_START_BLOCK_TOKEN: begin
+            // start bit 0 of data packet
+            crc16_in3 <= 0;
+            crc16_in2 <= 0;
+            crc16_in1 <= 0;
+            crc16_in0 <= 0;
+            didc <= 0;
+            bram_wr_sd_addr <= -1;
+            distate <= ST_DATA_READ_1;            
+         end
+         SPI_STOP_TRAN_TOKEN: begin
+            data_in_done <= 1;
+            distate <= ST_DATA_READ_3;
+         end
+         endcase
       end
-      if(data_in_stop_s) begin
-         data_in_done <= 1;
-         distate <= ST_DATA_READ_3;
+      else begin
+         // SD mode: falling edge of DAT0, and output state not driving
+         if((~sd_dat[0] & sd_dat_last) & ~sd_dat_oe[0]) begin 
+            // start bit 0 of data packet
+            crc16_in3 <= 0;
+            crc16_in2 <= 0;
+            crc16_in1 <= 0;
+            crc16_in0 <= 0;
+            didc <= 0;
+            bram_wr_sd_addr <= -1;
+            distate <= ST_DATA_READ_1;
+         end
+         if(data_in_stop_s) begin
+            data_in_done <= 1;
+            distate <= ST_DATA_READ_3;
+         end
       end
    end
    ST_DATA_READ_1: begin
@@ -310,8 +342,8 @@ always @(posedge sd_clk or negedge reset_n) begin
          if(didc[2:0] == 3'd0) bram_wr_sd_addr <= bram_wr_sd_addr + 1'b1;
          if(didc[2:0] == 3'd7) bram_wr_sd_wren <= 1;
       end else begin
-         bram_wr_sd_data <= {bram_wr_sd_data[31:0], sd_dat[0]};
-         crc16_in0 <= {crc16_in0[14:0], 1'b0} ^ ((sd_dat[0] ^ crc16_in0[15]) ? 16'h1021 : 16'h0);
+         bram_wr_sd_data <= {bram_wr_sd_data[31:0], sd_spi_dat};
+         crc16_in0 <= {crc16_in0[14:0], 1'b0} ^ ((sd_spi_dat ^ crc16_in0[15]) ? 16'h1021 : 16'h0);
          
          if(didc[4:0] == 5'd0) bram_wr_sd_addr <= bram_wr_sd_addr + 1'b1;
          if(didc[4:0] == 5'd31) bram_wr_sd_wren <= 1;
@@ -331,14 +363,21 @@ always @(posedge sd_clk or negedge reset_n) begin
       crc16_check3[15:0] <= {crc16_check3[14:0], sd_dat[3]};
       crc16_check2[15:0] <= {crc16_check2[14:0], sd_dat[2]};
       crc16_check1[15:0] <= {crc16_check1[14:0], sd_dat[1]};
-      crc16_check0[15:0] <= {crc16_check0[14:0], sd_dat[0]};
+      crc16_check0[15:0] <= {crc16_check0[14:0], sd_spi_dat};
       
       if(didc == 16 || data_in_stop_s) begin
          // end, including 1 stop bit
          data_in_done <= 1;
-         data_in_crc_good <= mode_crc_disable_s |
-            ( {crc16_check3, crc16_check2, crc16_check1, crc16_check0} ==
-              {crc16_in3, crc16_in2, crc16_in1, crc16_in0} );
+         if (mode_crc_disable_s) begin
+            data_in_crc_good <= 1'b1;
+         end
+         else if (mode_4bit_s) begin
+            data_in_crc_good <= {crc16_check3, crc16_check2, crc16_check1, crc16_check0} ==
+                                {crc16_in3, crc16_in2, crc16_in1, crc16_in0};
+         end   
+         else begin
+            data_in_crc_good <= crc16_check0 == crc16_in0;
+         end
          didc <= 0;
          distate <= ST_DATA_READ_3;
          
@@ -595,31 +634,56 @@ always @(negedge sd_clk or negedge reset_n) begin
    end
    
    ST_DATA_TOKEN: begin
-      // send CRC token
-      case(dodc)
-      1: begin
-         sd_dat_oe[0] <= 1; 
-         sd_dat_out[0] <= 0; // start bit
+      if (mode_spi_s) begin
+         // SPI mode: wait for mgr to accept the block, then align with spi_cnt.
+         // Top 3 bits are "don't care", so align with bit 4.
+         if (~do_crc_token & spi_cnt[2:0] == 3'd2) begin
+            dostate <= ST_DATA_TOKEN_1;
+         end
       end
-      2: sd_dat_out[0] <= ~data_in_crc_good;
-      3: sd_dat_out[0] <= data_in_crc_good;
-      4: sd_dat_out[0] <= ~data_in_crc_good;
-      5: sd_dat_out[0] <= 1; // stop/end bit
-      6: begin
-         sd_dat_out[0] <= 0; // start bit of busy
-         dostate <= ST_DATA_TOKEN_1;
+      else begin
+         // SD mode: send CRC token
+         case(dodc)
+         1: begin
+            sd_dat_oe[0] <= 1; 
+            sd_dat_out[0] <= 0; // start bit
+         end
+         2: sd_dat_out[0] <= ~data_in_crc_good;
+         3: sd_dat_out[0] <= data_in_crc_good;
+         4: sd_dat_out[0] <= ~data_in_crc_good;
+         5: sd_dat_out[0] <= 1; // stop/end bit
+         6: begin
+            sd_dat_out[0] <= 0; // start bit of busy
+            dostate <= ST_DATA_TOKEN_1;
+         end
+         endcase
       end
-      endcase
    end
    ST_DATA_TOKEN_1: begin
-      // busy signal until data sink deasserts ACT
-      sd_dat_oe[0] <= 1;
-      sd_dat_out[0] <= 0;
-      if(~data_in_act_s) begin
-         // drive stop bit high
+      if (mode_spi_s) begin
+         // SPI mode: send one-byte response token
          sd_dat_oe[0] <= 1;
-         sd_dat_out[0] <= 1;
-         dostate <= ST_DATA_TOKEN_2;
+         case(spi_cnt[2:0])
+         3: sd_dat_out[0] <= 0;
+         4: sd_dat_out[0] <= ~data_in_crc_good;
+         5: sd_dat_out[0] <= data_in_crc_good;
+         6: sd_dat_out[0] <= ~data_in_crc_good;
+         7: begin
+            sd_dat_out[0] <= 1;
+            dostate <= ST_DATA_TOKEN_2;
+         end
+         endcase
+      end
+      else begin
+         // SD mode: busy signal until data sink deasserts ACT
+         sd_dat_oe[0] <= 1;
+         sd_dat_out[0] <= 0;
+         if(~data_in_act_s) begin
+            // drive stop bit high
+            sd_dat_oe[0] <= 1;
+            sd_dat_out[0] <= 1;
+            dostate <= ST_DATA_TOKEN_2;
+         end
       end
    end
    ST_DATA_TOKEN_2: begin
