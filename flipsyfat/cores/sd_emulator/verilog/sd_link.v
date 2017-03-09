@@ -26,7 +26,7 @@ module sd_link (
    input  wire [47:0]  phy_cmd_in,
    input  wire         phy_cmd_in_crc_good,
    input  wire         phy_cmd_in_act,
-   input  wire         phy_spi_cs,
+   input  wire         phy_spi_sel,
    output reg          phy_data_in_act,
    input  wire         phy_data_in_busy,
    output reg          phy_data_in_stop,
@@ -41,6 +41,7 @@ module sd_link (
    input  wire         phy_resp_done,
    output reg          phy_mode_4bit,
    output reg          phy_mode_spi,
+   output reg          phy_mode_crc_disable,
    output reg  [511:0] phy_data_out_reg,
    output reg          phy_data_out_src,
    output reg  [9:0]   phy_data_out_len,
@@ -73,6 +74,7 @@ module sd_link (
    output reg          err_cmd_crc,
 
    output wire [5:0]   cmd_in_cmd,
+   output reg  [31:0]  card_status,
    output reg  [15:0]  dc,
    output reg  [15:0]  ddc,
    output reg  [6:0]   state
@@ -90,10 +92,8 @@ wire [6:0]   cmd_in_crc = cmd_in_latch[7:1];
 reg  [3:0]   card_state;
 assign       link_card_state = card_state;
 reg  [3:0]   card_state_next;
-reg  [3:0]   card_acmd41_count;
 reg  [2:0]   card_erase_state;
 reg          card_appcmd;
-reg  [31:0]  card_status;
 reg  [127:0] card_sd_status;
 reg  [127:0] card_csd;
 reg  [127:0] card_cid;
@@ -133,6 +133,30 @@ parameter [6:0] DST_RESET      = 'd0,
                 DST_DATA_IN_5  = 'd25,
                 DST_LAST       = 'd127;
 
+wire spi_parameter_error_flag = card_status[STAT_ADDRESS_ERROR] | 
+                                card_status[STAT_BLOCK_LEN_ERROR] |
+                                card_status[STAT_ERASE_PARAM];
+wire [15:0] spi_status_word = {
+   // R1
+   1'b0,
+   spi_parameter_error_flag,
+   card_status[STAT_ADDRESS_ERROR],
+   card_status[STAT_ERASE_SEQ_ERROR],
+   card_status[STAT_COM_CRC_ERROR],
+   card_status[STAT_ILLEGAL_COMMAND],
+   card_status[STAT_ERASE_RESET],
+   card_state == CARD_IDLE,
+   // R2
+   card_status[STAT_OUT_OF_RANGE] | card_status[STAT_CSD_OVERWRITE],
+   card_status[STAT_ERASE_PARAM],
+   card_status[STAT_WP_VIOLATION],
+   card_status[STAT_CARD_ECC_FAILED],
+   card_status[STAT_CC_ERROR],
+   card_status[STAT_ERROR],
+   card_status[STAT_WP_ERASE_SKIP] | card_status[STAT_LOCK_UNLOCK_FAILED],
+   card_status[STAT_CARD_IS_LOCKED]
+};
+
 reg data_op_send_scr;
 reg data_op_send_sdstatus;
 reg data_op_send_function;
@@ -147,7 +171,7 @@ wire        reset_s;
 wire [47:0] cmd_in_s;
 wire        cmd_in_crc_good_s;
 wire        cmd_in_act_s, cmd_in_act_r;
-wire        spi_cs_s;
+wire        spi_sel_s;
 wire        data_in_busy_s;
 wire        data_in_done_s, data_in_done_r;
 wire        data_in_crc_good_s;
@@ -157,14 +181,14 @@ wire        data_out_done_s, data_out_done_r;
 synch_3       a(reset_n, reset_s, clk_50);
 synch_3 #(48) b(phy_cmd_in, cmd_in_s, clk_50);
 synch_3       c(phy_cmd_in_crc_good, cmd_in_crc_good_s, clk_50);
-synch_3       d(phy_cmd_in_act, cmd_in_act_s, clk_50, cmd_in_act_r);
+synch_3r      d(phy_cmd_in_act, cmd_in_act_s, clk_50, cmd_in_act_r);
 synch_3       e(phy_data_in_busy, data_in_busy_s, clk_50);
-synch_3       f(phy_data_in_done, data_in_done_s, clk_50, data_in_done_r);
+synch_3r      f(phy_data_in_done, data_in_done_s, clk_50, data_in_done_r);
 synch_3       g(phy_data_in_crc_good, data_in_crc_good_s, clk_50);
-synch_3       h(phy_resp_done, resp_done_s, clk_50, resp_done_r);
+synch_3r      h(phy_resp_done, resp_done_s, clk_50, resp_done_r);
 synch_3       i(phy_data_out_busy, data_out_busy_s, clk_50);
-synch_3       j(phy_data_out_done, data_out_done_s, clk_50, data_out_done_r);
-synch_3       k(phy_spi_cs, spi_cs_s, clk_50);
+synch_3r      j(phy_data_out_done, data_out_done_s, clk_50, data_out_done_r);
+synch_3       k(phy_spi_sel, spi_sel_s, clk_50);
 
 
 always @(posedge clk_50) begin
@@ -180,7 +204,6 @@ always @(posedge clk_50) begin
       err_unhandled_cmd <= 0;
       err_cmd_crc <= 0;
       card_erase_state <= 0;
-      card_acmd41_count <= 0;
       card_blocks_written <= 0;
       card_appcmd <= 0;
       card_rca <= 16'h0;
@@ -220,6 +243,7 @@ always @(posedge clk_50) begin
       phy_data_out_act <= 0;
       phy_data_out_stop <= 0;
       phy_mode_4bit <= 0;   
+      phy_mode_crc_disable <= phy_mode_spi;
 
       block_read_act <= 0;
       block_read_num <= 0;
@@ -227,8 +251,9 @@ always @(posedge clk_50) begin
       block_write_act <= 0;
       block_write_num <= 0;
       block_preerase_num <= 0;
-      
-      state <= ST_IDLE;
+
+      // In SPI mode, reset gets an R1 response      
+      state <= phy_mode_spi ? ST_CMD_RESP_0 : ST_IDLE;
    end
    ST_IDLE: begin
       // rising edge + crc is good
@@ -236,7 +261,7 @@ always @(posedge clk_50) begin
          phy_resp_act <= 0;
          if(cmd_in_crc_good_s) begin
             // new command
-            cmd_in_latch <= phy_cmd_in; //cmd_in_s;
+            cmd_in_latch <= phy_cmd_in;
             card_status[STAT_COM_CRC_ERROR] <= 0;
             card_status[STAT_ILLEGAL_COMMAND] <= 0;
             state <= ST_CMD_ACT;
@@ -261,13 +286,23 @@ always @(posedge clk_50) begin
          case(cmd_in_cmd)
          CMD0_GO_IDLE: begin
             if(card_state != CARD_INA) begin
-               // reset everything to default, optionally enter SPI mode
-               resp_type <= RESP_NONE;
+               // reset to default, optionally enter SPI mode.
                state <= ST_RESET;
                data_state <= DST_RESET;
-               phy_mode_spi <= phy_mode_spi | spi_cs_s;
+               if (phy_mode_spi | spi_sel_s) begin
+                  phy_mode_spi <= 1'b1;
+                  resp_type <= RESP_R1;
+               end
+               else begin
+                  resp_type <= RESP_NONE;
+               end
             end
          end
+         CMD1_SEND_OP_COND: case(card_state)
+            CARD_IDLE: begin
+            resp_type <= RESP_R1;
+            end
+         endcase
          CMD2_ALL_SEND_CID: case(card_state)
             CARD_READY: begin
             resp_type <= RESP_R2;
@@ -360,6 +395,9 @@ always @(posedge clk_50) begin
                end
                endcase
             end else resp_type <= RESP_NONE;
+            if(phy_mode_spi) begin
+               resp_type <= RESP_R1;
+            end
          end
          CMD10_SEND_CID: begin
             if(cmd_in_arg[31:16] == card_rca) begin
@@ -369,6 +407,9 @@ always @(posedge clk_50) begin
                end
                endcase
             end else resp_type <= RESP_NONE;
+            if(phy_mode_spi) begin
+               resp_type <= RESP_R1;
+            end
          end
          CMD12_STOP: case(card_state)
             // N.B. should not be allowed in PRG state, but readers do anyway
@@ -390,6 +431,9 @@ always @(posedge clk_50) begin
                end
                endcase
             end else resp_type <= RESP_NONE;
+            if(phy_mode_spi) begin
+               resp_type <= RESP_R2;
+            end            
          end
          CMD15_GO_INACTIVE: begin
             if(cmd_in_arg[31:16] == card_rca) begin
@@ -507,8 +551,15 @@ always @(posedge clk_50) begin
                end
                endcase
             end else resp_type <= RESP_NONE;
+            if(phy_mode_spi) begin
+               resp_type <= RESP_R1;
+               card_appcmd <= 1;
+               card_status[STAT_APP_CMD] <= 1;
+            end
          end
          //CMD56_GEN_CMD: begin
+         //end
+         //CMD59_CRC_ON_OFF: begin
          //end
          default: begin
             err_unhandled_cmd <= 1;
@@ -556,23 +607,18 @@ always @(posedge clk_50) begin
             block_preerase_num[22:0] <= cmd_in_arg[22:0];
             end
          endcase
-         ACMD41_SEND_OP_COND: case(card_state)
-            CARD_IDLE: begin
-            resp_type <= RESP_R3;
-            card_acmd41_count <= card_acmd41_count + 1'b1;
-            if(cmd_in_arg[23:0] == 24'h0) begin
-               // ocr is zero, this is a query.
-               
-            end else
-            if(cmd_in_arg[30]) begin
-               // is host SDHC compatible? otherwise we'll never be ready
-               if(card_acmd41_count > 2) begin
-                  card_ocr[OCR_POWERED_UP] <= 1;
-                  card_state_next <= CARD_READY;
+         ACMD41_SEND_OP_COND: begin
+            case(card_state)
+               CARD_IDLE: begin
+               resp_type <= RESP_R3;
+               card_ocr[OCR_POWERED_UP] <= 1;
+               card_state_next <= CARD_READY;
                end
-            end 
+            endcase
+            if (phy_mode_spi) begin
+               resp_type <= RESP_R1;
             end
-         endcase
+         end
          ACMD42_SET_CARD_DET: case(card_state)
             // card detect pullup is unsupported
             CARD_TRAN: resp_type <= RESP_R1;
@@ -613,24 +659,38 @@ always @(posedge clk_50) begin
          state <= ST_IDLE;
       end
       RESP_BAD: begin
-         // illegal
-         card_status[STAT_ILLEGAL_COMMAND] <= 1;
-         state <= ST_IDLE;
+         if (phy_mode_spi) begin
+            // SPI mode; R1 response with 'illegal command' bit already set
+            phy_resp_out <= {spi_status_word[15:11], 1'b1, spi_status_word[9:8], 128'h0};            
+         end
+         else begin
+            // SD mode; no response, bit set for later
+            card_status[STAT_ILLEGAL_COMMAND] <= 1;
+            state <= ST_IDLE;
+         end
       end
       RESP_R1, RESP_R1B: begin
-         phy_resp_out <= {2'b00, cmd_in_cmd, card_status, 8'h1, 88'h0};
+         phy_resp_out <= phy_mode_spi ?
+            {spi_status_word[15:8], 128'h0} :
+            {2'b00, cmd_in_cmd, card_status, 8'h1, 88'h0};
       end
       RESP_R2: begin
-         phy_resp_out <= {2'b00, 6'b111111, cmd_in_cmd == CMD9_SEND_CSD ? card_csd[127:1] : card_cid[127:1], 1'b1};
+         phy_resp_out <= phy_mode_spi ?
+            {spi_status_word[15:0], 120'h0} :
+            {2'b00, 6'b111111, cmd_in_cmd == CMD9_SEND_CSD ? card_csd[127:1] : card_cid[127:1], 1'b1};
       end
       RESP_R3: begin
-         phy_resp_out <= {2'b00, 6'b111111, card_ocr, 8'hFF, 88'h0};
+         phy_resp_out <= phy_mode_spi ?
+            {spi_status_word[15:8], card_ocr, 96'h0} :
+            {2'b00, 6'b111111, card_ocr, 8'hFF, 88'h0};
       end
       RESP_R6: begin
          phy_resp_out <= {2'b00, 6'b000011, card_rca, {card_status[23:22], card_status[19], card_status[12:0]}, 8'h1, 88'h0};
       end
       RESP_R7: begin
-         phy_resp_out <= {2'b00, 6'b001000, resp_arg[31:0], 8'h1, 88'h0};
+         phy_resp_out <= phy_mode_spi ?
+            {spi_status_word[15:8], resp_arg[31:0], 96'h0} :
+            {2'b00, 6'b001000, resp_arg[31:0], 8'h1, 88'h0};
       end
       endcase      
    end
@@ -899,6 +959,7 @@ always @(posedge clk_50) begin
       state <= ST_RESET;
       data_state <= DST_RESET;
       phy_mode_spi <= 0;
+      phy_mode_crc_disable <= 0;
    end    
 end
 
