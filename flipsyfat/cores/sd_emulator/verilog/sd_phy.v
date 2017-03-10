@@ -542,12 +542,15 @@ always @(negedge sd_clk or negedge reset_n) begin
       if (dodc[4:0] == 5'd6) begin
          dodc <= 0;
          dostate <= ST_DATA_WRITE_1;
+         // preload bram Q data
+         dout_buf <= bram_rd_sd_q;
          data_out_reg_latch <= data_out_reg;
       end
       crc16_out3 <= 16'h0;
       crc16_out2 <= 16'h0;
       crc16_out1 <= 16'h0;
       crc16_out0 <= 16'h0;
+
    end
    ST_DATA_WRITE: begin
       // delay start of output

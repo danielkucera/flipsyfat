@@ -380,14 +380,13 @@ always @(posedge clk_50) begin
                resp_type <= RESP_NONE;
             end
          end
-         CMD8_SEND_IF_COND: case(card_state)
-            CARD_IDLE: begin
-            if(cmd_in_arg[11:8] == 4'b0001) begin
+         CMD8_SEND_IF_COND: begin
+            if ( ((card_state == CARD_IDLE) & (cmd_in_arg[11:8] == 4'b0001))
+                 | phy_mode_spi ) begin
                resp_type <= RESP_R7;
                resp_arg <= {20'h0, 4'b0001, cmd_in_arg[7:0]};
             end else resp_type <= RESP_NONE;
-            end
-         endcase
+         end
          CMD9_SEND_CSD: begin
             if(cmd_in_arg[31:16] == card_rca) begin
                case(card_state)
@@ -448,100 +447,100 @@ always @(posedge clk_50) begin
                endcase
             end else resp_type <= RESP_NONE;
          end
-         CMD16_SET_BLOCKLEN: case(card_state)
-            CARD_TRAN: begin
-            resp_type <= RESP_R1;
-            if(cmd_in_arg > 512) card_status[STAT_BLOCK_LEN_ERROR] <= 1;
-            end
-         endcase
-         CMD17_READ_SINGLE: case(card_state)
-            CARD_TRAN: begin
-            if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
-               card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
-            end else begin
+         CMD16_SET_BLOCKLEN: begin
+            if (card_state == CARD_TRAN || phy_mode_spi) begin
                resp_type <= RESP_R1;
-               block_read_addr <= cmd_in_arg;
-               block_read_num <= 1;
-               data_op_send_block_queue <= 1;
-               card_state_next <= CARD_DATA;
+               if(cmd_in_arg > 512) card_status[STAT_BLOCK_LEN_ERROR] <= 1;
             end
+         end
+         CMD17_READ_SINGLE: begin
+            if (card_state == CARD_TRAN || phy_mode_spi) begin
+               if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
+                  card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
+               end else begin
+                  resp_type <= RESP_R1;
+                  block_read_addr <= cmd_in_arg;
+                  block_read_num <= 1;
+                  data_op_send_block_queue <= 1;
+                  card_state_next <= CARD_DATA;
+               end
             end
-         endcase
-         CMD18_READ_MULTIPLE: case(card_state)
-            CARD_TRAN: begin
-            if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
-               card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
-            end else begin
-               resp_type <= RESP_R1;
-               block_read_addr <= cmd_in_arg;
-               block_read_num <= 32'hFFFFFFFF;
-               data_op_send_block_queue <= 1;
-               card_state_next <= CARD_DATA;
+         end
+         CMD18_READ_MULTIPLE: begin
+            if (card_state == CARD_TRAN || phy_mode_spi) begin
+               if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
+                  card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
+               end else begin
+                  resp_type <= RESP_R1;
+                  block_read_addr <= cmd_in_arg;
+                  block_read_num <= 32'hFFFFFFFF;
+                  data_op_send_block_queue <= 1;
+                  card_state_next <= CARD_DATA;
+               end
             end
+         end
+         CMD24_WRITE_SINGLE: begin
+            if (card_state == CARD_TRAN || phy_mode_spi) begin
+               if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
+                  card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
+               end else begin
+                  resp_type <= RESP_R1;
+                  block_write_addr <= cmd_in_arg;
+                  block_write_num <= 1;
+                  card_blocks_written <= 0;
+                  data_op_recv_block <= 1;
+                  card_state_next <= CARD_RCV;
+               end
             end
-         endcase
-         CMD24_WRITE_SINGLE: case(card_state)
-            CARD_TRAN: begin
-            if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
-               card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
-            end else begin
-               resp_type <= RESP_R1;
-               block_write_addr <= cmd_in_arg;
-               block_write_num <= 1;
-               card_blocks_written <= 0;
-               data_op_recv_block <= 1;
-               card_state_next <= CARD_RCV;
+         end
+         CMD25_WRITE_MULTIPLE: begin
+            if (card_state == CARD_TRAN || phy_mode_spi) begin
+               if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
+                  card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
+               end else begin
+                  resp_type <= RESP_R1;
+                  block_write_addr <= cmd_in_arg;
+                  block_write_num <= 32'hFFFFFFFF;
+                  card_blocks_written <= 0;
+                  data_op_recv_block <= 1;
+                  card_state_next <= CARD_RCV;
+               end
             end
-            end
-         endcase
-         CMD25_WRITE_MULTIPLE: case(card_state)
-            CARD_TRAN: begin
-            if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
-               card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
-            end else begin
-               resp_type <= RESP_R1;
-               block_write_addr <= cmd_in_arg;
-               block_write_num <= 32'hFFFFFFFF;
-               card_blocks_written <= 0;
-               data_op_recv_block <= 1;
-               card_state_next <= CARD_RCV;
-            end
-            end
-         endcase
+         end
          //CMD27_PROGRAM_CSD: begin
          //end
-         CMD32_ERASE_START: case(card_state)
-            CARD_TRAN: begin
-            resp_type <= RESP_R1;
-            card_erase_state <= 0;
-            if(card_erase_state == 0) begin
-               block_erase_start <= cmd_in_arg;
-               card_erase_state <= 1;
-            end else card_status[STAT_ERASE_SEQ_ERROR] <= 1'b1;
+         CMD32_ERASE_START: begin
+            if (card_state == CARD_TRAN || phy_mode_spi) begin
+               resp_type <= RESP_R1;
+               card_erase_state <= 0;
+               if(card_erase_state == 0) begin
+                  block_erase_start <= cmd_in_arg;
+                  card_erase_state <= 1;
+               end else card_status[STAT_ERASE_SEQ_ERROR] <= 1'b1;
             end
-         endcase
-         CMD33_ERASE_END: case(card_state)
-            CARD_TRAN: begin
-            resp_type <= RESP_R1;
-            card_erase_state <= 0;
-            if(card_erase_state == 1) begin
-               block_erase_end <= cmd_in_arg;
-               card_erase_state <= 2;
-            end else card_status[STAT_ERASE_SEQ_ERROR] <= 1'b1;
+         end
+         CMD33_ERASE_END: begin
+            if (card_state == CARD_TRAN || phy_mode_spi) begin
+               resp_type <= RESP_R1;
+               card_erase_state <= 0;
+               if(card_erase_state == 1) begin
+                  block_erase_end <= cmd_in_arg;
+                  card_erase_state <= 2;
+               end else card_status[STAT_ERASE_SEQ_ERROR] <= 1'b1;
             end
-         endcase
-         CMD38_ERASE: case(card_state)
-            CARD_TRAN: begin
-            resp_type <= RESP_R1B;
-            card_erase_state <= 0;
-            if(card_erase_state == 2) begin
-               // process erase 
-               
-            end else card_status[STAT_ERASE_SEQ_ERROR] <= 1'b1;
-            // since erase are unimpl they happen immediately
-            //card_state_next <= CARD_PRG;
+         end
+         CMD38_ERASE: begin
+            if (card_state == CARD_TRAN || phy_mode_spi) begin
+               resp_type <= RESP_R1B;
+               card_erase_state <= 0;
+               if(card_erase_state == 2) begin
+                  // process erase 
+                  
+               end else card_status[STAT_ERASE_SEQ_ERROR] <= 1'b1;
+               // since erase are unimpl they happen immediately
+               //card_state_next <= CARD_PRG;
             end
-         endcase
+         end
          //CMD42_LOCK_UNLOCK: begin
          //end
          CMD55_APP_CMD: begin
