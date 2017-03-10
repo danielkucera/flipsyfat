@@ -74,6 +74,9 @@ void block_read(uint8_t *buf, uint32_t lba)
     case FAT_ROOT_START ... FAT_ROOT_END: {
         unsigned start = (lba - FAT_ROOT_START) * FAT_DENTRY_PER_SECTOR;
         triggers |= 0x02;
+        if (lba == FAT_ROOT_END) {
+            triggers |= 0x08;
+        }
         for (int i = 0; i < FAT_DENTRY_PER_SECTOR; i++) {
             fat_rootdir_entry(buf+i*0x20, start+i);
         }
