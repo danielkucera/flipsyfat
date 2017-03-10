@@ -28,6 +28,12 @@ simple:
 		MISOC_DIRECTORY=$(MISOC_DIRECTORY) SERIAL=$(SERIAL) \
 		make -C flipsyfat/software/simple load
 
+blockfrob:
+	MSCDIR=$(MSCDIR) CPU=lm32 TRIPLE=lm32-elf \
+		BUILDINC_DIRECTORY=$(MSCDIR)/software/include \
+		MISOC_DIRECTORY=$(MISOC_DIRECTORY) SERIAL=$(SERIAL) \
+		make -C flipsyfat/software/blockfrob load
+
 term:
 	miniterm.py --raw $(SERIAL) 115200
 
