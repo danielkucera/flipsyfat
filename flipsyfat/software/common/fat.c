@@ -16,7 +16,7 @@ const uint32_t fat_volume_serial = 0xf00d1e55;
 
 void block_read(uint8_t *buf, uint32_t lba)
 {
-    uint8_t triggers = 0x01;
+    sdtrig_latch_write(0x01);
 
     switch (lba) {
 
@@ -73,9 +73,9 @@ void block_read(uint8_t *buf, uint32_t lba)
     // Root Directory
     case FAT_ROOT_START ... FAT_ROOT_END: {
         unsigned start = (lba - FAT_ROOT_START) * FAT_DENTRY_PER_SECTOR;
-        triggers |= 0x02;
+        sdtrig_latch_write(sdtrig_latch_read() | 0x02);
         if (lba == FAT_ROOT_END) {
-            triggers |= 0x08;
+            sdtrig_latch_write(sdtrig_latch_read() | 0x08);
         }
         for (int i = 0; i < FAT_DENTRY_PER_SECTOR; i++) {
             fat_rootdir_entry(buf+i*0x20, start+i);
@@ -87,7 +87,7 @@ void block_read(uint8_t *buf, uint32_t lba)
     case FAT_ROOT_END + 1 ... FAT_PARTITION_START + FAT_PARTITION_SIZE - 1: {
         unsigned cluster = 2 + ((lba - FAT_ROOT_END - 1) / FAT_CLUSTER_SIZE);
         unsigned offset = (lba - FAT_ROOT_END - 1) % FAT_CLUSTER_SIZE;
-        triggers |= 0x04;
+        sdtrig_latch_write(sdtrig_latch_read() | 0x08);
         fat_data_block(buf, cluster, offset);
         break;
     }
@@ -97,9 +97,6 @@ void block_read(uint8_t *buf, uint32_t lba)
         memset(buf, 'x', BLOCK_SIZE);
         sprintf((char*) buf, "%08x block\n", lba);
     }
-
-    // Update triggers to be latched on read completion
-    sdtrig_latch_write(triggers);
 }
 
 void block_write(uint8_t *buf, uint32_t lba)

@@ -18,6 +18,8 @@
 static char filename_guess[12] = "ABCDEFGHDAT";
 void change_guess(int offset, int amount);
 
+static int num_files = FAT_MAX_ROOT_ENTRIES - 1;
+
 
 int main(void)
 {
@@ -50,6 +52,12 @@ int main(void)
                     if (filename_offset < 10)
                         filename_offset++;
                     break;
+                case 'N':
+                    num_files++;
+                    break;
+                case 'n':
+                    num_files--;
+                    break;
                 default:
                     continue;
             }
@@ -57,7 +65,8 @@ int main(void)
         }
 
         if (force_status || elapsed(&last_event, CONFIG_CLOCK_FREQUENCY / 4)) {
-            printf("guess:%s offset:%02d ", filename_guess, filename_offset);
+            printf("guess:\"%s\" [+%2d]=%02x nfile=%02x ",
+                filename_guess, filename_offset, filename_guess[filename_offset], num_files);
             sdemu_status();
         }
     }
@@ -78,9 +87,12 @@ void fat_rootdir_entry(uint8_t* dest, unsigned index)
     memset(dest, 0, 32);
     if (index == 0) {
         fat_volume_label(dest);
-    } else {
+    } else if (index <= num_files) {
         fat_plain_file(dest, filename_guess, filename_guess + 8,
             0x100 + index, BLOCK_SIZE * FAT_CLUSTER_SIZE);
+    } else {
+        // Reading end of directory table
+        sdtrig_latch_write(sdtrig_latch_read() | 0x10);
     }
 }
 
