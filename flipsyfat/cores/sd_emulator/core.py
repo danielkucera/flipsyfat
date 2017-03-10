@@ -64,14 +64,23 @@ class SDEmulator(Module, AutoCSR):
         ]
 
         # Informational registers, not needed for data transfer
-        self._info_bits = CSRStatus(4)
+        self._info_bits = CSRStatus(16)
         self.comb += self._info_bits.status.eq(Cat(
             self.ll.mode_4bit,
             self.ll.mode_spi,
+            self.ll.host_hc_support,
+            Constant(False),             # Reserved bit 3
+            Constant(False),             # Reserved bit 4
+            Constant(False),             # Reserved bit 5
+            Constant(False),             # Reserved bit 6
+            Constant(False),             # Reserved bit 7
             self.ll.info_card_desel,
             self.ll.err_op_out_range,
             self.ll.err_unhandled_cmd,
             self.ll.err_cmd_crc,
         ))
-        self._most_recent_cmd = CSRStatus(6)
+        self._most_recent_cmd = CSRStatus(len(self.ll.cmd_in_cmd))
         self.comb += self._most_recent_cmd.status.eq(self.ll.cmd_in_cmd)
+        self._card_status = CSRStatus(len(self.ll.card_status))
+        self.comb += self._card_status.status.eq(self.ll.card_status)
+

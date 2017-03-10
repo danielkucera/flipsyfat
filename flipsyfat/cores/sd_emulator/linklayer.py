@@ -76,6 +76,7 @@ class SDLinkLayer(Module):
         self.err_op_out_range = Signal()
         self.err_unhandled_cmd = Signal()
         self.err_cmd_crc = Signal()
+        self.host_hc_support = Signal()
 
         # Debug signals
         self.cmd_in_cmd = Signal(6)
@@ -201,6 +202,7 @@ class SDLinkLayer(Module):
             o_err_unhandled_cmd = self.err_unhandled_cmd,
             o_err_cmd_crc = self.err_cmd_crc,
             o_cmd_in_cmd = self.cmd_in_cmd,
+            o_host_hc_support = self.host_hc_support,
             o_card_status = self.card_status,
             o_state = self.link_state,
             o_dc = self.link_dc,
