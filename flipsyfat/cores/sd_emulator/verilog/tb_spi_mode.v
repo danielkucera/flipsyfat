@@ -9,7 +9,6 @@ reg flipsyfat_sdemu_cmd_t_i = 1'b1;
 reg [3:0] flipsyfat_sdemu_sd_dat_i = 4'b1111;
 
 initial forever #2 sys_clk = ~sys_clk;
-initial forever #9 sdemu_sd_clk = ~sdemu_sd_clk;
 
 reg [31:0] n;
 
@@ -24,24 +23,11 @@ initial begin
     for (n=0; n<10; n++)
        spi_byte(8'hFF);
 
-    // Broken CMD0 with bad start bit framing (as sent by Propeller library)
     #1000
     spi_cs(1'b0);
-    spi_byte(8'h00);
-    spi_byte(8'h40);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h95);
-    for (n=0; n<10; n++)
-       spi_byte(8'hFF);
-    spi_cs(1'b1);
+    spi_byte(8'hff);
+    spi_byte(8'hff);
 
-    // CMD0 with harmless FF padding
-    #1000
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
     spi_byte(8'h40);
     spi_byte(8'h00);
     spi_byte(8'h00);
@@ -50,26 +36,16 @@ initial begin
     spi_byte(8'h95);
     for (n=0; n<4; n++)
        spi_byte(8'hFF);
-    spi_cs(1'b1);
 
-    // CMD8
-    #1000
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
     spi_byte(8'h48);
     spi_byte(8'h00);
     spi_byte(8'h00);
-    spi_byte(8'h01);
-    spi_byte(8'hAA);
+    spi_byte(8'h02);
+    spi_byte(8'haa);
     spi_byte(8'h87);
     for (n=0; n<8; n++)
        spi_byte(8'hFF);
-    spi_cs(1'b1);
 
-    // CMD55
-    spi_byte(8'hFF);
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
     spi_byte(8'h77);
     spi_byte(8'h00);
     spi_byte(8'h00);
@@ -77,12 +53,7 @@ initial begin
     spi_byte(8'h00);
     for (n=0; n<5; n++)
        spi_byte(8'hFF);
-    spi_cs(1'b1);
 
-    // ACMD41
-    spi_byte(8'hFF);
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
     spi_byte(8'h69);
     spi_byte(8'h40);
     spi_byte(8'h00);
@@ -90,144 +61,97 @@ initial begin
     spi_byte(8'h00);
     for (n=0; n<5; n++)
        spi_byte(8'hFF);
-    spi_cs(1'b1);
 
-    // CMD55
-    spi_byte(8'hFF);
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
-    spi_byte(8'h77);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    for (n=0; n<5; n++)
-       spi_byte(8'hFF);
-    spi_cs(1'b1);
-
-    // ACMD41
-    spi_byte(8'hFF);
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
-    spi_byte(8'h69);
+    spi_byte(8'h7a);
     spi_byte(8'h40);
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h00);
-    for (n=0; n<5; n++)
+    for (n=0; n<7; n++)
        spi_byte(8'hFF);
+ 
     spi_cs(1'b1);
-
-    // CMD58
     spi_byte(8'hFF);
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
-    spi_byte(8'h7A);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    for (n=0; n<20; n++)
-       spi_byte(8'hFF);
-    spi_cs(1'b1);
-
-    // CMD9
-    spi_byte(8'hFF);
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
-    spi_byte(8'h49);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h0D);
-    for (n=0; n<40; n++)
-       spi_byte(8'hFF);
-    spi_cs(1'b1);
-
-    // CMD13
-    spi_byte(8'hFF);
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
-    spi_byte(8'h4D);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h0D);
+    #1000;
     for (n=0; n<10; n++)
        spi_byte(8'hFF);
-    spi_cs(1'b1);
-
-    // CMD10
-    spi_byte(8'hFF);
     spi_cs(1'b0);
-    spi_byte(8'hFF);
-    spi_byte(8'h4A);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    for (n=0; n<40; n++)
+    for (n=0; n<2; n++)
        spi_byte(8'hFF);
-    spi_cs(1'b1);
 
-    // CMD16
-    spi_byte(8'hFF);
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
+    spi_byte(8'h40);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h95);
+    for (n=0; n<4; n++)
+       spi_byte(8'hFF);
+
+    spi_byte(8'h48);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h02);
+    spi_byte(8'haa);
+    spi_byte(8'h87);
+    for (n=0; n<8; n++)
+       spi_byte(8'hFF);
+
+    spi_byte(8'h77);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    for (n=0; n<5; n++)
+       spi_byte(8'hFF);
+
+    spi_byte(8'h69);
+    spi_byte(8'h40);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    for (n=0; n<5; n++)
+       spi_byte(8'hFF);
+
+    spi_byte(8'h77);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    for (n=0; n<5; n++)
+       spi_byte(8'hFF);
+
+    spi_byte(8'h69);
+    spi_byte(8'h40);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    spi_byte(8'h00);
+    for (n=0; n<5; n++)
+       spi_byte(8'hFF);
+
     spi_byte(8'h50);
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h02);
     spi_byte(8'h00);
-    for (n=0; n<10; n++)
+    for (n=0; n<3; n++)
        spi_byte(8'hFF);
-    spi_cs(1'b1);
 
-    // CMD17, block 0 read
+    spi_cs(1'b1);
     spi_byte(8'hFF);
+    #1000;
     spi_cs(1'b0);
-    spi_byte(8'hFF);
+    for (n=0; n<2; n++)
+       spi_byte(8'hFF);
+
     spi_byte(8'h51);
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h00);
     spi_byte(8'h00);
-    for (n=0; n<550; n++)
-       spi_byte(8'hFF);
-    spi_cs(1'b1);
 
-    // CMD17, block 3F read
-    spi_byte(8'hFF);
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
-    spi_byte(8'h51);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h3f);
-    for (n=0; n<550; n++)
+    for (n=0; n<20; n++)
        spi_byte(8'hFF);
-    spi_cs(1'b1);
-
-    // CMD24, block 3F write
-    spi_byte(8'hFF);
-    spi_cs(1'b0);
-    spi_byte(8'hFF);
-    spi_byte(8'h58);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h00);
-    spi_byte(8'h3f);
-    for (n=0; n<10; n++)
-       spi_byte(8'hff);
-    spi_byte(8'hfe);
-    for (n=0; n<512; n++)
-       spi_byte(n[7:0]);
-    for (n=0; n<40; n++)
-       spi_byte(8'hff); 
-    spi_cs(1'b1);
 
     #1000  $finish;
 end
@@ -248,11 +172,12 @@ task spi_byte;
     begin
         misobyte_next = 0;
         for (i = 0; i < 8; i++) begin
-            @(negedge sdemu_sd_clk);
             flipsyfat_sdemu_cmd_t_i = mosibyte[7-i];
-            @(posedge sdemu_sd_clk);
+            #12 sdemu_sd_clk = 1;
+            #12 sdemu_sd_clk = 0;
             misobyte_next[7-i] = flipsyfat_sdemu_sd_dat_o[0];
         end
+        #100
         misobyte = misobyte_next;
         $display("SPI %x -> %x", mosibyte, misobyte);
     end
