@@ -50,6 +50,12 @@ class Flipsyfat(BaseSoC):
         # Activity LED
         self.io_activity = (self.sdemu.ll.block_read_act | self.sdemu.ll.block_write_act )
         self.sync += self.platform.request("user_led").eq(self.io_activity)
+
+        # Just for debugging
+        self.comb += self.platform.request("debug").eq(Cat(
+            self.sdemu.ll.card_status[5],  # appcmd
+            self.sdemu.ll.cmd_in_act
+            ))
  
 
 def main():
