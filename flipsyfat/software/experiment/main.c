@@ -33,7 +33,10 @@ int main(void)
 
     while (1) {
         static int last_event = 0;
+        static int second_counter_event = 0;
+        static int auto_advance_ticks = 0;
         static int filename_offset = 0;
+        static bool auto_advance = false;
         bool force_status = false;
 
         if (uart_read_nonblock()) {
@@ -58,15 +61,30 @@ int main(void)
                 case 'n':
                     num_files--;
                     break;
+                case 'A':
+                    auto_advance = !auto_advance;
+                    break;
                 default:
                     continue;
             }
             force_status = true;
         }
 
+        if (elapsed(&second_counter_event, CONFIG_CLOCK_FREQUENCY)) {
+            if (auto_advance) {
+                if (auto_advance_ticks > 1) {
+                    auto_advance_ticks--;
+                } else {
+                    auto_advance_ticks = 30;
+                    change_guess(filename_offset, 1);
+                }
+            }
+        }
+
         if (force_status || elapsed(&last_event, CONFIG_CLOCK_FREQUENCY / 4)) {
-            printf("guess:\"%s\" [+%2d]=%02x nfile=%02x ",
-                filename_guess, filename_offset, filename_guess[filename_offset], num_files);
+            printf("guess:\"%s\" [+%2d]=%02x auto=%02d nfile=%02x ",
+                filename_guess, filename_offset, filename_guess[filename_offset],
+                auto_advance ? auto_advance_ticks : 0, num_files);
             sdemu_status();
         }
     }
