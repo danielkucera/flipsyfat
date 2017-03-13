@@ -1,7 +1,8 @@
 include $(MISOC_DIRECTORY)/software/common.mak
 
-OBJECTS = main.o ../common/sdemu.o ../common/fat.o ../common/isr.o
-INCLUDES += -I../common
+COMMON := ../common
+OBJECTS = main.o $(COMMON)/sdemu.o $(COMMON)/fat.o $(COMMON)/isr.o
+INCLUDES += -I$(COMMON)
 APP = simple
 
 # kludge... why isn't gcc finding this on its own?

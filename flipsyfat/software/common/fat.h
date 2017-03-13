@@ -13,7 +13,8 @@
 #define FAT_MAX_ROOT_ENTRIES    0x200
 #define FAT_SECTORS_PER_TABLE   0x3e
 #define FAT_NUM_TABLES          2
-#define FAT_DENTRY_PER_SECTOR   16
+#define FAT_DENTRY_SIZE         0x20
+#define FAT_DENTRY_PER_SECTOR   0x10
 #define FAT_MEDIA_DESCRIPTOR    0xf8     // Hard Disk
 #define FAT_PHYSICAL_DRIVE_NUM  0x80     // DOS drive
 #define FAT_SECTORS_PER_TRACK   0x20     // Legacy CHS

@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -13,63 +12,35 @@
 #include <system.h>
 
 #include "sdemu.h"
+#include "hexedit.h"
 #include "block_guess.h"
-
 
 int main(void)
 {
+    hexedit_t editor;
+
     irq_setmask(0);
     irq_setie(1);
     time_init();
     uart_init();
     sdemu_init();
+    hexedit_init(&editor, block_guess, sizeof block_guess);
 
     puts("Blockfrob software built "__DATE__" "__TIME__"\n");
 
     while (1) {
         static int last_event = 0;
-        static int offset = 0;
- 
-        uint8_t *current = &block_guess[offset];
         bool force_status = false;
 
         if (uart_read_nonblock()) {
-
-            switch (uart_read()) {
-                case 'w':
-                    (*current)++;
-                    break;
-                case 's':
-                    (*current)--;
-                    break;
-                case 'W':
-                    memset(current, *current + 1, sizeof block_guess - offset);
-                    break;
-                case 'S':
-                    memset(current, *current - 1, sizeof block_guess - offset);
-                    break;
-                case 'a':
-                    offset--;
-                    break;
-                case 'd':
-                    offset++;
-                    break;
-                case 'A':
-                    offset -= 0x10;
-                    break;
-                case 'D':
-                    offset += 0x10;
-                    break;
-                default:
-                    continue;
-            }
-            force_status = true;
-            if (offset < 0) offset = 0;
-            if (offset >= sizeof block_guess) offset = sizeof block_guess - 1;
+            force_status |= hexedit_interact(&editor, uart_read());
         }
 
-        if (force_status || elapsed(&last_event, CONFIG_CLOCK_FREQUENCY / 4)) {
-            printf("[+%03x]=%02x ", offset, block_guess[offset]);
+        if (force_status || elapsed(&last_event, CONFIG_CLOCK_FREQUENCY / 2)) {
+            printf("\e[H"); // Home
+            if (!force_status) printf("\e[J"); // Clear
+            hexedit_print(&editor);
+            putchar('\n');
             sdemu_status();
         }
     }
