@@ -73,9 +73,10 @@ void block_read(uint8_t *buf, uint32_t lba)
     // Root Directory
     case FAT_ROOT_START ... FAT_ROOT_END: {
         unsigned start = (lba - FAT_ROOT_START) * FAT_DENTRY_PER_SECTOR;
-        sdtrig_latch_write(sdtrig_latch_read() | 0x02);
         if (lba == FAT_ROOT_END) {
             sdtrig_latch_write(sdtrig_latch_read() | 0x08);
+        } else {
+            sdtrig_latch_write(sdtrig_latch_read() | 0x02);
         }
         for (int i = 0; i < FAT_DENTRY_PER_SECTOR; i++) {
             fat_rootdir_entry(buf+i*FAT_DENTRY_SIZE, start+i);

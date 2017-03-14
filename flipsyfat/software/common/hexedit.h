@@ -14,6 +14,7 @@ typedef struct hexedit_struct {
     int window_height;
     int cursor_low;
     int cursor_size;
+    int cursor_data_width;
     int esc_state;
     int hex_nybble;
 } hexedit_t;

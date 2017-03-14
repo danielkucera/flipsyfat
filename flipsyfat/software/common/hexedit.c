@@ -12,7 +12,7 @@
 
 static void hexedit_validate(hexedit_t* editor)
 {
-    uint32_t win_bytes;
+    uint32_t win_bytes, cursor_max;
 
     editor->window_width = MAX(1, editor->window_width);
     editor->window_height = MAX(1, MIN((editor->buffer_size + editor->window_width - 1) / editor->window_width, editor->window_height));
@@ -20,7 +20,11 @@ static void hexedit_validate(hexedit_t* editor)
 
     editor->window_addr = MAX(0, MIN(editor->buffer_size - win_bytes, editor->window_addr));
     editor->cursor_low = MAX(0, MIN(editor->buffer_size - 1, editor->cursor_low));
-    editor->cursor_size = MAX(1, MIN(editor->buffer_size - editor->cursor_low, editor->cursor_size));
+    editor->cursor_data_width = MAX(1, editor->cursor_data_width);
+
+    cursor_max = editor->buffer_size - editor->cursor_low;
+    editor->cursor_data_width = MAX(1, MIN(cursor_max, editor->cursor_data_width));
+    editor->cursor_size = MAX(editor->cursor_data_width, MIN(cursor_max, editor->cursor_size));
 
     while (editor->cursor_low < editor->window_addr && editor->window_addr >= editor->window_width) {
         editor->window_addr -= editor->window_width;
@@ -115,11 +119,11 @@ bool hexedit_interact(hexedit_t* editor, uint8_t chr)
                     break;
 
                 case '{':
-                    editor->cursor_size -= 16;
+                    editor->cursor_data_width--;
                     break;
 
                 case '}':
-                    editor->cursor_size += 16;
+                    editor->cursor_data_width++;
                     break;
 
                 default:
@@ -160,8 +164,23 @@ bool hexedit_interact(hexedit_t* editor, uint8_t chr)
     hexedit_validate(editor);
 
     if (delta != 0) {
-        uint8_t value = editor->buffer[editor->cursor_low] + delta;
-        memset(editor->buffer + editor->cursor_low, value, editor->cursor_size);
+
+        // Arbitrary width little endian add
+        int carry = delta;
+        for (int i = 0; i < editor->cursor_data_width; i++) {
+            uint8_t *p = &editor->buffer[editor->cursor_low + i];
+            int v = *p + carry;
+            carry = v >> 8;
+            *p = (uint8_t) v;
+        }        
+
+        // Replicate across whole cursor width
+        for (int dest = editor->cursor_low + editor->cursor_data_width;
+             dest < editor->cursor_size;
+             dest += editor->cursor_data_width) {
+            memmove(editor->buffer + dest, editor->buffer + editor->cursor_low,
+                MIN(editor->cursor_data_width, editor->cursor_size + editor->cursor_low - dest));
+        }
     }
 
     if (entered_byte >= 0) {
@@ -181,6 +200,10 @@ static char interbyte_char(hexedit_t* editor, uint32_t pre_addr, uint32_t post_a
 
     if (post_addr == editor->cursor_low + editor->cursor_size - 1)
         return ']';
+
+    if ((pre_addr - editor->cursor_low) < editor->cursor_data_width &&
+        (post_addr - editor->cursor_low) < editor->cursor_data_width)
+        return '-';
 
     return ' ';
 }

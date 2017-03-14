@@ -69,7 +69,7 @@ int main(void)
                 if (auto_advance_ticks > 1) {
                     auto_advance_ticks--;
                 } else {
-                    auto_advance_ticks = 30;
+                    auto_advance_ticks = 2;
                     hexedit_interact(&editor, '+');
                 }
             }
@@ -79,7 +79,9 @@ int main(void)
             printf("\e[H"); // Home
             if (!force_status) printf("\e[J"); // Clear
             hexedit_print(&editor);
-            printf("\nauto=%02d nfile=%02x\n", auto_advance ? auto_advance_ticks : 0, num_files);
+            printf("\nauto=%02d nfile=%02x cursor=%04xx%x\n",
+                auto_advance ? auto_advance_ticks : 0, num_files,
+                editor.cursor_low, editor.cursor_size);
             sdemu_status();
         }
     }
