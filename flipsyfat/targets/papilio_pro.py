@@ -53,7 +53,7 @@ class Flipsyfat(BaseSoC):
 
         # Just for debugging
         self.comb += self.platform.request("debug").eq(Cat(
-            self.sdemu.ll.card_status[5],  # appcmd
+            self.sdemu.ll.data_out_done,
             self.sdemu.ll.cmd_in_act
             ))
  
