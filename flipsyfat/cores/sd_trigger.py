@@ -5,20 +5,14 @@ from migen.fhdl.decorators import ClockDomainsRenamer
 
 
 class SDTriggerOutputDriver(Module, AutoCSR):
-    def __init__(self, trig_out, latch_in, posedge_in, pulse_cycles=5):
-
+    def __init__(self, trig_out, latch_in, posedge_in):
         posedge_prev = Signal()
-        counter = Signal(log2_int(pulse_cycles, need_pow2=False))
-
         self.sync += [
             posedge_prev.eq(posedge_in),
             If(posedge_in & ~posedge_prev,
-                counter.eq(pulse_cycles),
                 trig_out.eq(latch_in)
-            ).Elif(counter == 0,
-                trig_out.eq(0)
             ).Else(
-                counter.eq(counter - 1)
+                trig_out.eq(0)
             )
         ]
 
