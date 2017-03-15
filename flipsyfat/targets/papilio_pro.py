@@ -6,6 +6,7 @@ from migen import *
 from flipsyfat.cores.sd_emulator import SDEmulator
 from flipsyfat.cores.sd_trigger import SDTrigger
 from misoc.targets.papilio_pro import BaseSoC
+from misoc.cores.gpio import GPIOTristate
 from migen.build.generic_platform import *
 from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
@@ -22,10 +23,9 @@ io = [
         Pins("C:0 C:1 C:2 C:3 C:4 C:5 C:6 C:7"),
         IOStandard("LVCMOS33")
     ),
-    ("debug", 0,
-        Pins("C:14 C:15"),
-        IOStandard("LVCMOS33")
-    ),
+    ("debug", 0, Pins("C:14"), IOStandard("LVCMOS33")),
+    ("clkout", 0, Pins("C:15"), IOStandard("LVCMOS33")),
+    ("gpio", 0, Pins("A B"), IOStandard("LVCMOS33")),
 ]
 
 
@@ -47,16 +47,13 @@ class Flipsyfat(BaseSoC):
         self.submodules.sdtrig = SDTrigger(self.sdemu.ll, self.platform.request("trigger"))
         self.csr_devices += ["sdtrig"]
 
+        self.submodules.gpio = GPIOTristate(self.platform.request("gpio"))
+        self.csr_devices += ["gpio"]
+
         # Activity LED
         self.io_activity = (self.sdemu.ll.block_read_act | self.sdemu.ll.block_write_act )
         self.sync += self.platform.request("user_led").eq(self.io_activity)
 
-        # Just for debugging
-        self.comb += self.platform.request("debug").eq(Cat(
-            self.sdemu.ll.data_out_done,
-            self.sdemu.ll.cmd_in_act
-            ))
- 
 
 def main():
     parser = argparse.ArgumentParser(description="Flipsyfat port to the Papilio Pro")
