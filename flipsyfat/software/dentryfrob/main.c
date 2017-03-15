@@ -79,9 +79,8 @@ int main(void)
             printf("\e[H"); // Home
             if (!force_status) printf("\e[J"); // Clear
             hexedit_print(&editor);
-            printf("\nauto=%02d nfile=%02x cursor=%04xx%x\n",
-                auto_advance ? auto_advance_ticks : 0, num_files,
-                editor.cursor_low, editor.cursor_size);
+            printf("\nauto=%02d nfile=%02x\n",
+                auto_advance ? auto_advance_ticks : 0, num_files);
             sdemu_status();
         }
     }

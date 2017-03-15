@@ -176,7 +176,7 @@ bool hexedit_interact(hexedit_t* editor, uint8_t chr)
 
         // Replicate across whole cursor width
         for (int dest = editor->cursor_low + editor->cursor_data_width;
-             dest < editor->cursor_size;
+             dest < editor->cursor_low + editor->cursor_size;
              dest += editor->cursor_data_width) {
             memmove(editor->buffer + dest, editor->buffer + editor->cursor_low,
                 MIN(editor->cursor_data_width, editor->cursor_size + editor->cursor_low - dest));
@@ -185,8 +185,9 @@ bool hexedit_interact(hexedit_t* editor, uint8_t chr)
 
     if (entered_byte >= 0) {
         memset(editor->buffer + editor->cursor_low, entered_byte, editor->cursor_size);
-        editor->cursor_size--;
-        editor->cursor_low++;
+        if (editor->cursor_size == 1) {
+            editor->cursor_low++;
+        }
         hexedit_validate(editor);
     }
 
@@ -229,6 +230,10 @@ void hexedit_print(hexedit_t* editor)
         for (uint16_t x = 0; x < editor->window_width; x++) {
             uint8_t chr = editor->buffer[addr + x];
             putchar((chr < 0x80 && isprint(chr)) ? chr : '.');
+        }
+
+        if ((uint32_t)(editor->cursor_low - addr) < editor->window_width) {
+            printf(" @%04x*%x", editor->cursor_low, editor->cursor_size);
         }
 
         putchar('\n');

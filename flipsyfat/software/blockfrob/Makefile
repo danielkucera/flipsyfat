@@ -1,12 +1,7 @@
-include $(MISOC_DIRECTORY)/software/common.mak
+include ../common.mak
 
-COMMON = ../common
 OBJECTS = main.o $(COMMON)/sdemu.o $(COMMON)/isr.o $(COMMON)/hexedit.o
-INCLUDES += -I$(COMMON)
 APP = blockfrob
-
-# kludge... why isn't gcc finding this on its own?
-LIBGCC_DIR=/usr/local/lib/gcc/lm32-elf/6.3.0
 
 all: $(APP).bin
 
@@ -45,8 +40,11 @@ load: $(APP).bin
 	echo Connecting to bootloader...
 	$(MISOC_DIRECTORY)/tools/flterm.py --kernel $(APP).bin $(SERIAL)
 
+term:
+	miniterm.py --raw $(SERIAL) 115200
+
 clean:
 	$(RM) $(OBJECTS) $(APP).elf $(APP).bin
 	$(RM) .*~ *~
 
-.PHONY: all main.o clean libs load
+.PHONY: all main.o clean libs load term
