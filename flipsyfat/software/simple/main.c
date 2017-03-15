@@ -11,6 +11,7 @@
 
 #include "fat.h"
 #include "sdemu.h"
+#include "sdtimer.h"
 
 
 int main(void)
@@ -26,8 +27,7 @@ int main(void)
     while (1) {
         static int last_event = 0;
         if (elapsed(&last_event, CONFIG_CLOCK_FREQUENCY / 10)) {
-            printf("now=%08x rts=%08x wts=%08x dts=%08x  ",
-                sdtimer_now_read(), sdtimer_read_ts_read(), sdtimer_write_ts_read(), sdtimer_done_ts_read());
+            sdtimer_status();
             sdemu_status();
         }
     }

@@ -8,7 +8,6 @@
 
 static uint32_t sdemu_read_count = 0;
 static uint32_t sdemu_write_count = 0;
-static uint32_t sdemu_last_addr = 0;
 
 
 void sdemu_init(void)
@@ -26,26 +25,25 @@ void sdemu_isr(void)
     if (stat & SDEMU_EV_READ) {
         uint32_t addr = sdemu_read_addr_read();
         block_read((uint8_t *) SDEMU_BASE, addr);
-        sdemu_read_go_write(0);
+        sdemu_ev_pending_write(SDEMU_EV_READ);
         sdemu_read_count++;
-        sdemu_last_addr = addr;
     }
 
     if (stat & SDEMU_EV_WRITE) {
         uint32_t addr = sdemu_write_addr_read();
         block_write((uint8_t *) (SDEMU_BASE + BLOCK_SIZE), addr);
-        sdemu_write_done_write(0);
+        sdemu_ev_pending_write(SDEMU_EV_WRITE);
         sdemu_write_count++;
-        sdemu_last_addr = addr;
     }
 }
 
 void sdemu_status(void)
 {
-    printf("rd:%08x wr:%08x raddr:%08x cardstat:%08x info:%04x cmd:%d\n",
+    printf("rd:%08x wr:%08x rda:%08x wra:%08x cardstat:%08x info:%04x cmd:%d\n",
         sdemu_read_count,
         sdemu_write_count,
         sdemu_read_addr_read(),
+        sdemu_write_addr_read(),
         sdemu_card_status_read(),
         sdemu_info_bits_read(),
         sdemu_most_recent_cmd_read());
