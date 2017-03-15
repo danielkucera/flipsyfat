@@ -1,6 +1,6 @@
 PAPILIO_DIR := $(shell pwd)/../Papilio-Loader/papilio-prog
 SOFTWARES := $(wildcard flipsyfat/software/*)
-DEFAULT_SOFTWARE := flipsyfat/software/dentryfrob
+DEFAULT_SOFTWARE := flipsyfat/software/simple
 
 .PHONY: all synth flash clean $(SOFTWARES)
 

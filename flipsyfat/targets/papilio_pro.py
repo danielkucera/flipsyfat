@@ -5,6 +5,7 @@ import argparse
 from migen import *
 from flipsyfat.cores.sd_emulator import SDEmulator
 from flipsyfat.cores.sd_trigger import SDTrigger
+from flipsyfat.cores.sd_timer import SDTimer
 from flipsyfat.cores.clock import ClockOutput
 from misoc.targets.papilio_pro import BaseSoC
 from misoc.cores.gpio import GPIOTristate
@@ -46,10 +47,13 @@ class Flipsyfat(BaseSoC):
         BaseSoC.__init__(self, **kwargs)
         self.platform.add_extension(io)
 
-        self.submodules.sdemu = SDEmulator(self.platform, self.platform.request("sdemu"), with_timer=self.timer0)
+        self.submodules.sdemu = SDEmulator(self.platform, self.platform.request("sdemu"))
         self.register_mem("sdemu", self.mem_map["sdemu"], self.sdemu.bus, self.sdemu.mem_size)
         self.csr_devices += ["sdemu"]
         self.interrupt_devices += ["sdemu"]
+
+        self.submodules.sdtimer = SDTimer(self.sdemu.ll)
+        self.csr_devices += ["sdtimer"]
 
         self.submodules.sdtrig = SDTrigger(self.sdemu.ll, self.platform.request("trigger"))
         self.csr_devices += ["sdtrig"]

@@ -13,7 +13,7 @@ class SDEmulator(Module, AutoCSR):
     # Read and write buffers, each a single 512 byte block
     mem_size = 1024
 
-    def __init__(self, platform, pads, with_timer=None, **kwargs):
+    def __init__(self, platform, pads, **kwargs):
         self.submodules.ll = SDLinkLayer(platform, pads, **kwargs)
 
         # Event interrupts
@@ -25,16 +25,6 @@ class SDEmulator(Module, AutoCSR):
             self.ev.read.trigger.eq(self.ll.block_read_act),
             self.ev.write.trigger.eq(self.ll.block_write_act)
         ]
-
-        # Optional event timestamps
-        if with_timer:
-            trigger = self.ll.block_read_act | self.ll.block_write_act
-            trigger_prev = Signal()
-            self._timestamp = CSRStatus(len(with_timer._value.status))
-            self.sync += [
-                trigger_prev.eq(trigger),
-                If(trigger & ~trigger_prev,
-                    self._timestamp.status.eq(with_timer._value.status))]
 
         # Wishbone access to SRAM buffers
         self.bus = wishbone.Interface()
