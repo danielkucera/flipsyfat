@@ -10,6 +10,7 @@
 typedef struct {
     uint8_t guess[FAT_DENTRY_SIZE];
     uint32_t measurement;
+    uint32_t replicate_count;
 } queue_entry;
 
 // Uniquely track each experiment. Actual queue position is modulo QUEUE_SIZE
@@ -28,7 +29,7 @@ static inline queue_entry* qentry(qptr_t i) {
 void reset_pulse(void);
 void mainloop_poll(void);
 
-void guess_enqueue(void);
+void guess_dentry(const uint8_t *dentry);
 void guess_filename(const char *name, const char *ext);
 
 #endif // _GUESSER_H

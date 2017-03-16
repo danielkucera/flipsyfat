@@ -17,14 +17,17 @@
 #include "sdtimer.h"
 #include "guesser.h"
 
-static const uint32_t normal_clkout_div = 16;
+#define NORMAL_CLKOUT_DIV 16
+static const uint32_t normal_measurement_low = 2120 * NORMAL_CLKOUT_DIV;
+static const uint32_t normal_measurement_high = 2160 * NORMAL_CLKOUT_DIV;
+static const uint32_t max_replicate_count = 32;
+
+static const uint32_t reset_gpio_mask = 1 << 0;
 
 static const uint32_t watchdog_period = CONFIG_CLOCK_FREQUENCY * 4;
 static const uint32_t status_period = CONFIG_CLOCK_FREQUENCY / 2;
 static const uint32_t reset_low_len = CONFIG_CLOCK_FREQUENCY / 10;
 static const uint32_t reset_high_len = CONFIG_CLOCK_FREQUENCY / 10;
-
-static const uint32_t reset_gpio_mask = 1 << 0;
 
 static uint32_t reset_counter;
 static uint32_t reset_ts;
@@ -57,7 +60,7 @@ void reset_pulse(void)
     while (!elapsed(&ts, reset_low_len));
 
     // Start clock, emulator, release reset
-    clkout_div_write(normal_clkout_div);
+    clkout_div_write(NORMAL_CLKOUT_DIV);
     sdemu_reset_write(0);
     gpio_oe_write(gpio_oe_read() & ~reset_gpio_mask);
 
@@ -106,45 +109,52 @@ static void dequeue_results(void)
 {
     while (qptr_read_measurement != qptr_write_measurement) {
         uint32_t measurement = qentry(qptr_read_measurement)->measurement;    
-        if (measurement == 0) {
-            // This measurement never completed, usually because the DUT had to be reset.
-            // Now that we're back on the main loop we can resubmit this to the queue.
+
+        if (measurement < normal_measurement_low || measurement > normal_measurement_high) {
+            // Unusual! Replicate this measurement to be sure
 
             if ((qptr_write_guess - qptr_read_measurement) > QUEUE_SIZE - 1) {
                 // Stop dequeueing until we have room to resubmit this guess
                 return;
             }
 
-            // Replicate this experiment
-            memcpy(qentry(qptr_write_guess)->guess,
+            printf("Unusual RESULT #%llu rep=%d [%.8s.%.3s] = %d\n",
+                (long long unsigned) qptr_read_measurement,
+                qentry(qptr_read_measurement)->replicate_count,
                 qentry(qptr_read_measurement)->guess,
-                FAT_DENTRY_SIZE);
-            qptr_write_guess++;
+                qentry(qptr_read_measurement)->guess + 8,
+                measurement);
 
-        } else {
-            uint8_t *name = qentry(qptr_read_measurement)->guess;
-            printf("RESULT #%llu [%.8s.%.3s] = %d\n",
-                (long long unsigned) qptr_read_measurement, name, name+8, measurement);
+            if (qentry(qptr_read_measurement)->replicate_count + 1 < max_replicate_count) {
+                // Replicate this experiment
+                memcpy(qentry(qptr_write_guess)->guess, qentry(qptr_read_measurement)->guess, FAT_DENTRY_SIZE);
+                qentry(qptr_write_guess)->replicate_count = qentry(qptr_read_measurement)->replicate_count + 1;
+                qptr_write_guess++;
+            }
         }
 
         qptr_read_measurement++;
     }
 }
 
-void guess_enqueue(void)
+void guess_dentry(const uint8_t *dentry)
 {
     // Keep the queue half full of normal guesses, leaving room for retries.
     do {
         mainloop_poll();
         dequeue_results();
     } while ((qptr_write_guess - qptr_read_measurement) > QUEUE_SIZE / 2);
+
+    memcpy(qentry(qptr_write_guess)->guess, dentry, FAT_DENTRY_SIZE);
+    qentry(qptr_write_guess)->replicate_count = 0;
     qptr_write_guess++;
 }
 
 void guess_filename(const char *name, const char *ext)
 {
-    fat_plain_file(qentry(qptr_write_guess)->guess, name, ext, 0x100, 0x10000);
-    guess_enqueue();
+    uint8_t dentry[FAT_DENTRY_SIZE];
+    fat_plain_file(dentry, name, ext, 0x100, 0x10000);
+    guess_dentry(dentry);
 }
 
 void fat_rootdir_entry(uint8_t* dest, unsigned index)
