@@ -47,14 +47,18 @@ void reset_pulse(void)
     reset_pending = false;
     elapsed(&ts, -1);
 
+    // Hold SD emulator in reset
+    sdemu_reset_write(1);
+
     // Drive reset low, stop clock
     gpio_out_write(gpio_out_read() & ~reset_gpio_mask);
     gpio_oe_write(gpio_oe_read() | reset_gpio_mask);
     clkout_div_write(0);
     while (!elapsed(&ts, reset_low_len));
 
-    // Start clock, release reset
+    // Start clock, emulator, release reset
     clkout_div_write(normal_clkout_div);
+    sdemu_reset_write(0);
     gpio_oe_write(gpio_oe_read() & ~reset_gpio_mask);
 
     // Another delay, then capture a fresh reset timestamp

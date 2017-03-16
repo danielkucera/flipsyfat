@@ -21,7 +21,7 @@ class SDEmulator(Module, AutoCSR):
         self.comb += done.eq(ev.clear)
 
     def __init__(self, platform, pads, **kwargs):
-        self.submodules.ll = SDLinkLayer(platform, pads, **kwargs)
+        self.submodules.ll = ClockDomainsRenamer("local")(SDLinkLayer(platform, pads, **kwargs))
 
         # Event interrupts and acknowledgment
         self.submodules.ev = EventManager()
@@ -40,6 +40,12 @@ class SDEmulator(Module, AutoCSR):
             (lambda a: a[9] == 1, self.wb_wr_buffer.bus)
         ]
         self.submodules.wb_decoder = wishbone.Decoder(self.bus, wb_slaves, register=True)
+
+        # Local reset domain
+        self._reset = CSRStorage()
+        self.clock_domains.cd_local = ClockDomain()
+        self.comb += self.cd_local.clk.eq(ClockSignal())
+        self.comb += self.cd_local.rst.eq(ResetSignal() | self._reset.storage)
 
         # Current data operation
         self._read_act = CSRStatus()

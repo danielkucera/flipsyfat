@@ -12,8 +12,10 @@ static uint32_t sdemu_write_count = 0;
 
 void sdemu_init(void)
 {
+    sdemu_reset_write(1);
     sdemu_ev_enable_write(SDEMU_EV_READ | SDEMU_EV_WRITE);
     irq_setmask(irq_getmask() | (1 << SDEMU_INTERRUPT));
+    sdemu_reset_write(0);
 }
 
 void sdemu_isr(void)
