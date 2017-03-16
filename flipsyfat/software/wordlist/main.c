@@ -26,18 +26,10 @@ int main(void)
 
     reset_pulse();
 
-    for (char p3 = 'A'; p3 <= 'Z'; p3++) {
-    for (char p2 = 'A'; p2 <= 'Z'; p2++) {
-    for (char p1 = 'A'; p1 <= 'Z'; p1++) {
-    for (char p0 = 'A'; p0 <= 'Z'; p0++) {
-        char guess[11] = {p0, p1, p2, p3, p0, p1, p2, p3, p0, p1, p2};
-        guess_filename(guess, guess+8);
-    }}}}
-
-    for (char p3 = '!'; p3 <= '`'; p3++) {
-    for (char p2 = '!'; p2 <= '`'; p2++) {
-    for (char p1 = '!'; p1 <= '`'; p1++) {
-    for (char p0 = '!'; p0 <= '`'; p0++) {
+    for (char p3 = ' '; p3 <= '`'; p3++) {
+    for (char p2 = ' '; p2 <= '`'; p2++) {
+    for (char p1 = ' '; p1 <= '`'; p1++) {
+    for (char p0 = ' '; p0 <= '`'; p0++) {
         char guess[11] = {p0, p1, p2, p3, p0, p1, p2, p3, p0, p1, p2};
         guess_filename(guess, guess+8);
     }}}}
