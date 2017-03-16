@@ -32,10 +32,11 @@ static bool reset_pending = false;
 static bool timer_armed = false;
 
 queue_entry queue[QUEUE_SIZE];
-volatile uint32_t qptr_write_guess;
-volatile uint32_t qptr_read_guess;
-volatile uint32_t qptr_write_measurement;
-volatile uint32_t qptr_read_measurement;
+volatile qptr_t qptr_write_guess;
+volatile qptr_t qptr_read_guess;
+volatile qptr_t qptr_write_measurement;
+volatile qptr_t qptr_read_measurement;
+
 
 void reset_pulse(void)
 {
@@ -50,18 +51,16 @@ void reset_pulse(void)
     gpio_out_write(gpio_out_read() & ~reset_gpio_mask);
     gpio_oe_write(gpio_oe_read() | reset_gpio_mask);
     clkout_div_write(0);
-
     while (!elapsed(&ts, reset_low_len));
 
     // Start clock, release reset
-
     clkout_div_write(normal_clkout_div);
     gpio_oe_write(gpio_oe_read() & ~reset_gpio_mask);
 
     // Another delay, then capture a fresh reset timestamp
     while (!elapsed(&ts, reset_high_len));
     sdtimer_capture_write(0);
-    reset_ts = sdtimer_now_read();
+    reset_ts = sdtimer_capture_ts_read();
 }
 
 void mainloop_poll(void)
@@ -88,34 +87,54 @@ void mainloop_poll(void)
     // Status
     if (elapsed(&last_event, status_period)) {
         uint8_t *name = qentry(qptr_read_guess)->guess;
-        printf("Trying [%.8s.%.3s] qptr (%d,%d,%d,%d) rst=%d ",
+        printf("Trying [%.8s.%.3s] qptr (%06x-%06x-%06x-%06x) rst=%d ",
             name, name+8,
-            qptr_write_guess, qptr_read_guess,
-            qptr_write_measurement, qptr_read_measurement,
+            (unsigned)(qptr_write_guess & 0xffffff),
+            (unsigned)(qptr_read_guess & 0xffffff),
+            (unsigned)(qptr_write_measurement & 0xffffff),
+            (unsigned)(qptr_read_measurement & 0xffffff),
             reset_counter);
         sdemu_status();
     }
+}
 
-    // Dequeue results
+static void dequeue_results(void)
+{
     while (qptr_read_measurement != qptr_write_measurement) {
-        uint8_t *name = qentry(qptr_read_measurement)->guess;
-        uint32_t measurement = qentry(qptr_read_measurement)->measurement;
-        printf("RESULT #%d [%.8s.%.3s] = %d\n", qptr_read_measurement, name, name+8, measurement);
+        uint32_t measurement = qentry(qptr_read_measurement)->measurement;    
+        if (measurement == 0) {
+            // This measurement never completed, usually because the DUT had to be reset.
+            // Now that we're back on the main loop we can resubmit this to the queue.
+
+            if ((qptr_write_guess - qptr_read_measurement) > QUEUE_SIZE - 1) {
+                // Stop dequeueing until we have room to resubmit this guess
+                return;
+            }
+
+            // Replicate this experiment
+            memcpy(qentry(qptr_write_guess)->guess,
+                qentry(qptr_read_measurement)->guess,
+                FAT_DENTRY_SIZE);
+            qptr_write_guess++;
+
+        } else {
+            uint8_t *name = qentry(qptr_read_measurement)->guess;
+            printf("RESULT #%llu [%.8s.%.3s] = %d\n",
+                (long long unsigned) qptr_read_measurement, name, name+8, measurement);
+        }
+
         qptr_read_measurement++;
     }
 }
 
 void guess_enqueue(void)
 {
-    while (true) {
-        if (((qptr_write_guess + 1 - qptr_read_measurement) % QUEUE_SIZE) == 0) {
-            // Wait for more space
-            mainloop_poll();
-            continue;
-        }
-        qptr_write_guess++;
-        break;        
-    }
+    // Keep the queue half full of normal guesses, leaving room for retries.
+    do {
+        mainloop_poll();
+        dequeue_results();
+    } while ((qptr_write_guess - qptr_read_measurement) > QUEUE_SIZE / 2);
+    qptr_write_guess++;
 }
 
 void guess_filename(const char *name, const char *ext)
@@ -135,23 +154,16 @@ void fat_rootdir_entry(uint8_t* dest, unsigned index)
         // Replicated copy of this sector's experiment
         memcpy(dest, qentry(qptr_read_guess)->guess, FAT_DENTRY_SIZE);
 
-        if (qptr_read_guess & 1) {
-            // xxx control
+#if 0   // Control experiment; all files starting with 'D' should take less time
+        if (dest[0] == 'D') {
             dest[0xb] = 0x8;
         }
+#endif
     }
 
     // First entry in sector; measure processing time if the timer was armed
     if (offset == 0 && timer_armed) {
-        uint32_t read_ts = sdtimer_read_ts_read();
-        uint32_t done_ts = sdtimer_done_ts_read();
-        uint32_t measurement = read_ts - done_ts;
-        qentry(qptr_write_measurement)->measurement = measurement;
-
-gpio_oe_write(2);
-gpio_out_write(measurement > 100000 ? 2 : 0);
-gpio_out_write(0);
-
+        qentry(qptr_write_measurement)->measurement = sdtimer_read_ts_read() - sdtimer_done_ts_read();
         qptr_write_measurement++;
         timer_armed = false;
     }
@@ -161,12 +173,17 @@ gpio_out_write(0);
         reset_pending = true;
         timer_armed = false;
 
-    } else if (offset == FAT_DENTRY_PER_SECTOR - 1 &&
-        (int32_t)(qptr_read_guess + 1 - qptr_write_guess) < 0) {
+    } else if (offset == FAT_DENTRY_PER_SECTOR - 1 && qptr_read_guess + 1 < qptr_write_guess) {
+        // End of sector, more guesses available
+
+        while (qptr_write_measurement < qptr_read_guess) {
+            // Skipped masurements; main loop will requeue them, we can't write to that queue safely from the ISR.
+            qentry(qptr_write_measurement)->measurement = 0;
+            qptr_write_measurement++;
+        }
 
         // Start timing the current guess
         timer_armed = true;
-
         // Next guess
         qptr_read_guess++;
     }

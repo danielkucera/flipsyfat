@@ -5,20 +5,23 @@
 #include <stdbool.h>
 
 // Power of two
-#define QUEUE_SIZE 32
+#define QUEUE_SIZE 128
 
 typedef struct {
     uint8_t guess[FAT_DENTRY_SIZE];
     uint32_t measurement;
 } queue_entry;
 
-extern queue_entry queue[QUEUE_SIZE];
-extern volatile uint32_t qptr_write_guess;         // Advance when a guess is enqueued
-extern volatile uint32_t qptr_read_guess;          // Follows when guess is sent
-extern volatile uint32_t qptr_write_measurement;   // Follows when timestamp result is measured
-extern volatile uint32_t qptr_read_measurement;    // Follows when result is dequeued
+// Uniquely track each experiment. Actual queue position is modulo QUEUE_SIZE
+typedef uint64_t qptr_t;
 
-static inline queue_entry* qentry(uint32_t i) {
+extern queue_entry queue[QUEUE_SIZE];
+extern volatile qptr_t qptr_write_guess;         // Advance when a guess is enqueued
+extern volatile qptr_t qptr_read_guess;          // Follows when guess is sent
+extern volatile qptr_t qptr_write_measurement;   // Follows when timestamp result is measured
+extern volatile qptr_t qptr_read_measurement;    // Follows when result is dequeued
+
+static inline queue_entry* qentry(qptr_t i) {
     return &queue[i % QUEUE_SIZE];
 }
 
