@@ -13,6 +13,13 @@ class SDEmulator(Module, AutoCSR):
     # Read and write buffers, each a single 512 byte block
     mem_size = 1024
 
+    def _connect_event(self, ev, act, done):
+        # Event triggered on 'act' positive edge, pulses 'done' on clear
+        prev_act = Signal()
+        self.sync += prev_act.eq(act)
+        self.comb += ev.trigger.eq(act & ~prev_act)
+        self.comb += done.eq(ev.clear)
+
     def __init__(self, platform, pads, **kwargs):
         self.submodules.ll = SDLinkLayer(platform, pads, **kwargs)
 
@@ -21,12 +28,8 @@ class SDEmulator(Module, AutoCSR):
         self.ev.read = EventSourcePulse()
         self.ev.write = EventSourcePulse()
         self.ev.finalize()
-        self.comb += [
-            self.ev.read.trigger.eq(self.ll.block_read_act),
-            self.ev.write.trigger.eq(self.ll.block_write_act),
-            self.ll.block_read_go.eq(self.ev.read.clear),
-            self.ll.block_write_done.eq(self.ev.write.clear),
-        ]
+        self._connect_event(self.ev.read, self.ll.block_read_act, self.ll.block_read_go)
+        self._connect_event(self.ev.write, self.ll.block_write_act, self.ll.block_write_done)
 
         # Wishbone access to SRAM buffers
         self.bus = wishbone.Interface()

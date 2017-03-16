@@ -10,7 +10,7 @@
 #define FAT_PARTITION_SIZE      0xf480
 #define FAT_CLUSTER_SIZE        4
 #define FAT_RESERVED_SECTORS    1
-#define FAT_MAX_ROOT_ENTRIES    0x200
+#define FAT_MAX_ROOT_ENTRIES    0x1000
 #define FAT_SECTORS_PER_TABLE   0x3e
 #define FAT_NUM_TABLES          2
 #define FAT_DENTRY_SIZE         0x20
@@ -105,6 +105,7 @@ static inline void fat_table_entry(uint8_t* dest, unsigned cluster)
 
 static inline void fat_volume_label(uint8_t *dest)
 {
+    memset(dest, 0, FAT_DENTRY_SIZE);
     fat_string(dest, fat_volume_name, 11);
     dest[0x0b] = 0x28;
 }
@@ -112,6 +113,7 @@ static inline void fat_volume_label(uint8_t *dest)
 static inline void fat_plain_file(uint8_t *dest, const char *name, const char *ext,
     unsigned first_cluster, unsigned filesize)
 {
+    memset(dest, 0, FAT_DENTRY_SIZE);
     fat_string(dest, name, 8);
     fat_string(dest+0x08, ext, 3);
     fat_uint16(dest+0x1a, first_cluster);

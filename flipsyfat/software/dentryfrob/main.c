@@ -45,6 +45,7 @@ int main(void)
     time_init();
     uart_init();
     sdemu_init();
+    clkout_div_write(16);
 
     puts("Experiment software built "__DATE__" "__TIME__"\n");
 

@@ -27,13 +27,17 @@ io = [
     ),
     ("gpio", 0,
         Pins("A:0 A:1 A:2 A:3 A:4 A:5 A:6 A:7 " +
-             "A:8 A:9 A:10 A:11 A:12 A:13 A:14 A:15 " +
-             "B:0 B:1 B:2 B:3 B:4 B:5 B:6 B:7 " +
-             "B:8 B:9 B:10 B:11 B:12 B:13 B:14 B:15"),
+             "A:8 A:9 A:10 A:11 A:12 A:13 A:14 A:15"),
         IOStandard("LVCMOS33")
     ),
-    ("debug", 0, Pins("C:14"), IOStandard("LVCMOS33")),
-    ("clkout", 0, Pins("C:15"), IOStandard("LVCMOS33")),
+    ("debug", 0,
+        Pins("B:12 B:13 B:14 B:15"),
+        IOStandard("LVCMOS33")
+    ),
+    ("clkout", 0,
+        Pins("C:14 C:15"),
+        IOStandard("LVCMOS33")
+    ),
 ]
 
 
@@ -67,6 +71,13 @@ class Flipsyfat(BaseSoC):
         # Activity LED
         self.io_activity = self.sdemu.ll.block_read_act | self.sdemu.ll.block_write_act
         self.sync += self.platform.request("user_led").eq(self.io_activity)
+
+        # Debug signals
+        self.comb += self.platform.request("debug").eq(Cat(
+            self.sdemu.ll.block_read_act,
+            self.sdemu.ll.data_out_done,
+            self.sdtimer._capture.re,
+        ))
 
 
 def main():
