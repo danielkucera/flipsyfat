@@ -20,6 +20,30 @@ static uint8_t guess[FAT_DENTRY_SIZE];
 static int num_files = FAT_MAX_ROOT_ENTRIES - 1;
 static bool auto_advance = false;
 
+#define NORMAL_CLKOUT_DIV 16
+static const uint32_t reset_gpio_mask = 1 << 0;
+static const uint32_t reset_low_len = CONFIG_CLOCK_FREQUENCY / 10;
+
+static void reset_pulse(void)
+{
+    int ts = 0;
+    elapsed(&ts, -1);
+
+    // Hold SD emulator in reset
+    sdemu_reset_write(1);
+
+    // Drive reset low, stop clock
+    gpio_out_write(gpio_out_read() & ~reset_gpio_mask);
+    gpio_oe_write(gpio_oe_read() | reset_gpio_mask);
+    clkout_div_write(0);
+    while (!elapsed(&ts, reset_low_len));
+
+    // Start clock, emulator, release reset
+    clkout_div_write(NORMAL_CLKOUT_DIV);
+    sdemu_reset_write(0);
+    gpio_oe_write(gpio_oe_read() & ~reset_gpio_mask);
+}
+
 static bool local_interact(char ch)
 {
     switch (ch) {
@@ -31,6 +55,9 @@ static bool local_interact(char ch)
             return true;
         case 'A':
             auto_advance = !auto_advance;
+            return true;
+        case 'R':
+            reset_pulse();
             return true;
     }
     return false;
@@ -45,7 +72,8 @@ int main(void)
     time_init();
     uart_init();
     sdemu_init();
-    clkout_div_write(16);
+
+    reset_pulse();
 
     puts("Experiment software built "__DATE__" "__TIME__"\n");
 
