@@ -15,7 +15,7 @@
 #include "fat.h"
 #include "hexedit.h"
 
-#define FILE_CLUSTER  0x100
+#define FILE_CLUSTER  0x1000
 static const char *file_name = "UP_BM";
 static const char *file_ext = "BIN";
 static uint8_t file_data[0x1000];  // 0x819 seems to be minimum
@@ -96,6 +96,16 @@ int main(void)
                 printf(" %x", fat_trace_buffer_block[i]);
             }
             printf(" ]\n\n");
+
+
+            for (int y = 0; y < 0x20; y++) {
+                printf("rd_buf %03x:", y<<4);
+                for (int x = 0; x < 0x10; x++) {
+                    printf(" %02x", *(uint8_t*)(SDEMU_BASE + x + (y<<4)));
+                }
+                putchar('\n');
+            }
+            putchar('\n');
 
             hexedit_print(&editor);
             putchar('\n');
