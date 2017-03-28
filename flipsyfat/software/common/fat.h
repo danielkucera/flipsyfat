@@ -5,13 +5,15 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define FAT_PARTITION_START     0x3f
 #define FAT_PARTITION_SIZE      0xf480
 #define FAT_CLUSTER_SIZE        4
 #define FAT_RESERVED_SECTORS    1
-#define FAT_MAX_ROOT_ENTRIES    0x1000
+#define FAT_MAX_ROOT_ENTRIES    0x200
 #define FAT_SECTORS_PER_TABLE   0x3e
+#define FAT_ENTRIES_PER_SECTOR  0x100
 #define FAT_NUM_TABLES          2
 #define FAT_DENTRY_SIZE         0x20
 #define FAT_DENTRY_PER_SECTOR   0x10
@@ -93,9 +95,9 @@ static inline void fat_table_entry(uint8_t* dest, unsigned cluster)
         fat_uint16(dest, 0xff00 | FAT_MEDIA_DESCRIPTOR);
 
     } else if (cluster < FAT_PARTITION_SIZE / FAT_CLUSTER_SIZE) {
-        // All possible clusters occupied, not chained.
-        // No free space.
-        fat_uint16(dest, 0xffff);
+        // Chain all clusters within a sector, let the last one be the end.
+        bool last_in_sector = (cluster % FAT_ENTRIES_PER_SECTOR) == (FAT_ENTRIES_PER_SECTOR - 1);
+        fat_uint16(dest, last_in_sector ? 0xffff : cluster + 1);
 
     } else {
         // Unused table entry

@@ -62,10 +62,9 @@ void block_read(uint8_t *buf, uint32_t lba)
 
     // FAT Tables 1 + 2
     case FAT_TABLE_START ... FAT_TABLE_END: {
-        const unsigned per_sector = BLOCK_SIZE / 2;
         unsigned sector = (lba - FAT_TABLE_START) % FAT_SECTORS_PER_TABLE;
-        for (int i = 0; i < per_sector; i++) {
-            fat_table_entry(buf+i*2, sector*per_sector + i);
+        for (int i = 0; i < FAT_ENTRIES_PER_SECTOR; i++) {
+            fat_table_entry(buf+i*2, sector*FAT_ENTRIES_PER_SECTOR + i);
         }
         break;
     }
