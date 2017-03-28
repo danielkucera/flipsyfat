@@ -464,7 +464,7 @@ always @(posedge clk_50) begin
          end
          CMD17_READ_SINGLE: begin
             if (card_state == CARD_TRAN || phy_mode_spi) begin
-               if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
+               if(cmd_in_arg_blockaddr >= SD_TOTAL_BLOCKS) begin
                   card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
                end else begin
                   resp_type <= RESP_R1;
@@ -477,7 +477,7 @@ always @(posedge clk_50) begin
          end
          CMD18_READ_MULTIPLE: begin
             if (card_state == CARD_TRAN || phy_mode_spi) begin
-               if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
+               if(cmd_in_arg_blockaddr >= SD_TOTAL_BLOCKS) begin
                   card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
                end else begin
                   resp_type <= RESP_R1;
@@ -490,7 +490,7 @@ always @(posedge clk_50) begin
          end
          CMD24_WRITE_SINGLE: begin
             if (card_state == CARD_TRAN || phy_mode_spi) begin
-               if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
+               if(cmd_in_arg_blockaddr >= SD_TOTAL_BLOCKS) begin
                   card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
                end else begin
                   resp_type <= RESP_R1;
@@ -504,7 +504,7 @@ always @(posedge clk_50) begin
          end
          CMD25_WRITE_MULTIPLE: begin
             if (card_state == CARD_TRAN || phy_mode_spi) begin
-               if(cmd_in_arg >= SD_TOTAL_BLOCKS) begin
+               if(cmd_in_arg_blockaddr >= SD_TOTAL_BLOCKS) begin
                   card_status[STAT_OUT_OF_RANGE] <= 1'b1; err_op_out_range <= 1;
                end else begin
                   resp_type <= RESP_R1;
@@ -523,7 +523,7 @@ always @(posedge clk_50) begin
                resp_type <= RESP_R1;
                card_erase_state <= 0;
                if(card_erase_state == 0) begin
-                  block_erase_start <= cmd_in_arg;
+                  block_erase_start <= cmd_in_arg_blockaddr;
                   card_erase_state <= 1;
                end else card_status[STAT_ERASE_SEQ_ERROR] <= 1'b1;
             end
@@ -533,7 +533,7 @@ always @(posedge clk_50) begin
                resp_type <= RESP_R1;
                card_erase_state <= 0;
                if(card_erase_state == 1) begin
-                  block_erase_end <= cmd_in_arg;
+                  block_erase_end <= cmd_in_arg_blockaddr;
                   card_erase_state <= 2;
                end else card_status[STAT_ERASE_SEQ_ERROR] <= 1'b1;
             end
