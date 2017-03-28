@@ -34,6 +34,11 @@ extern const char* fat_oem_name;
 extern const char* fat_volume_name;
 extern const uint32_t fat_volume_serial;
 
+// Record of recent block reads
+#define FAT_TRACE_BUFFER_SIZE   512
+extern uint32_t fat_trace_buffer_block[FAT_TRACE_BUFFER_SIZE];
+extern uint32_t fat_trace_buffer_index;
+
 // Callbacks
 extern void fat_rootdir_entry(uint8_t* dest, unsigned index);
 extern void fat_data_block(uint8_t* dest, unsigned cluster, unsigned index);

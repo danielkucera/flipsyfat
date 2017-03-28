@@ -13,9 +13,16 @@ const char* fat_oem_name = "FAKEDOS";
 const char* fat_volume_name = "FLIPSY";
 const uint32_t fat_volume_serial = 0xf00d1e55;
 
+uint32_t fat_trace_buffer_block[FAT_TRACE_BUFFER_SIZE];
+uint32_t fat_trace_buffer_index = 0;
+
 
 void block_read(uint8_t *buf, uint32_t lba)
 {
+    if (fat_trace_buffer_index < FAT_TRACE_BUFFER_SIZE) {
+        fat_trace_buffer_block[fat_trace_buffer_index++] = lba;
+    }
+
     sdtrig_latch_write(0x01);
 
     switch (lba) {
