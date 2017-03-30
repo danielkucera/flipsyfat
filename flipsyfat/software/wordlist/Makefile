@@ -41,10 +41,10 @@ libs:
 
 load: $(APP).bin
 	echo Connecting to bootloader...
-	$(MISOC_DIRECTORY)/tools/flterm.py --kernel $(APP).bin $(SERIAL)
+	$(MISOC_DIRECTORY)/tools/flterm.py --kernel $(APP).bin --speed $(BAUDRATE) $(SERIAL)
 
 term:
-	miniterm.py --raw $(SERIAL) 115200
+	miniterm.py --raw $(SERIAL) $(BAUDRATE)
 
 clean:
 	$(RM) $(OBJECTS) $(APP).elf $(APP).bin

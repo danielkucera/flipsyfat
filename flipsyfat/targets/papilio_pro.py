@@ -48,7 +48,7 @@ class Flipsyfat(BaseSoC):
     mem_map.update(BaseSoC.mem_map)
 
     def __init__(self, **kwargs):
-        BaseSoC.__init__(self, **kwargs)
+        BaseSoC.__init__(self, uart_baudrate=500000, **kwargs)
         self.platform.add_extension(io)
 
         self.submodules.sdemu = SDEmulator(self.platform, self.platform.request("sdemu"))

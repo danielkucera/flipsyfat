@@ -1,4 +1,5 @@
 SERIAL = /dev/ttyUSB1
+BAUDRATE = 500000
 
 PAPILIO_DIR := $(shell pwd)/../../../../Papilio-Loader/papilio-prog
 MSCDIR := $(shell pwd)/../../../misoc_flipsyfat_papilio_pro
