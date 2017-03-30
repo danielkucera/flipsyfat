@@ -41,11 +41,11 @@ void sdemu_isr(void)
 
 void sdemu_status(void)
 {
-    printf("rd:%08x wr:%08x rda:%08x wra:%08x cardstat:%08x info:%04x cmd:%d\n",
+    printf("rd:%08x wr:%08x rda:%08x.%x wra:%08x.%x cardstat:%08x info:%04x cmd:%d\n",
         sdemu_read_count,
         sdemu_write_count,
-        sdemu_read_addr_read(),
-        sdemu_write_addr_read(),
+        sdemu_read_addr_read(), sdemu_read_byteaddr_read() & 0x1FF,
+        sdemu_write_addr_read(), sdemu_write_byteaddr_read() & 0x1FF,
         sdemu_card_status_read(),
         sdemu_info_bits_read(),
         sdemu_most_recent_cmd_read());

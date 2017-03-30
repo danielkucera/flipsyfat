@@ -93,10 +93,12 @@ class SDLinkLayer(Module):
         # I/O request outputs
         self.block_read_act = Signal()
         self.block_read_addr = Signal(32)
+        self.block_read_byteaddr = Signal(32)
         self.block_read_num = Signal(32)
         self.block_read_stop = Signal()
         self.block_write_act = Signal()
         self.block_write_addr = Signal(32)
+        self.block_write_byteaddr = Signal(32)
         self.block_write_num = Signal(32)
         self.block_preerase_num = Signal(23)
         self.block_erase_start = Signal(32)
@@ -187,11 +189,13 @@ class SDLinkLayer(Module):
             o_block_read_act = self.block_read_act,
             i_block_read_go = self.block_read_go,
             o_block_read_addr = self.block_read_addr,
+            o_block_read_byteaddr = self.block_read_byteaddr,
             o_block_read_num = self.block_read_num,
             o_block_read_stop = self.block_read_stop,
             o_block_write_act = self.block_write_act,
             i_block_write_done = self.block_write_done,
             o_block_write_addr = self.block_write_addr,
+            o_block_write_byteaddr = self.block_write_byteaddr,
             o_block_write_num = self.block_write_num,
             o_block_preerase_num = self.block_preerase_num,
             o_block_erase_start = self.block_erase_start,

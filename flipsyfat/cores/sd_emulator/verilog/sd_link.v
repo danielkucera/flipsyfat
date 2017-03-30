@@ -53,12 +53,14 @@ module sd_link (
    output reg          block_read_act,
    input  wire         block_read_go,
    output reg  [31:0]  block_read_addr,
+   output reg  [31:0]  block_read_byteaddr,
    output reg  [31:0]  block_read_num,
    output reg          block_read_stop,
 
    output reg          block_write_act,
    input  wire         block_write_done,
    output reg  [31:0]  block_write_addr,
+   output reg  [31:0]  block_write_byteaddr,
    output reg  [31:0]  block_write_num,
    output reg  [22:0]  block_preerase_num,
 
@@ -93,6 +95,7 @@ wire [6:0]   cmd_in_crc = cmd_in_latch[7:1];
 
 // High capacity mode uses blocks natively, legacy mode byte offsets are converted here
 wire [31:0]  cmd_in_arg_blockaddr = host_hc_support ? cmd_in_arg : { 9'b0, cmd_in_arg[31:9] };
+wire [31:0]  cmd_in_arg_byteaddr = host_hc_support ? { cmd_in_arg[22:0], 9'b0 } : cmd_in_arg;
 
 reg  [3:0]   card_state;
 assign       link_card_state = card_state;
@@ -469,6 +472,7 @@ always @(posedge clk_50) begin
                end else begin
                   resp_type <= RESP_R1;
                   block_read_addr <= cmd_in_arg_blockaddr;
+                  block_read_byteaddr <= cmd_in_arg_byteaddr;
                   block_read_num <= 1;
                   data_op_send_block_queue <= 1;
                   card_state_next <= CARD_DATA;
@@ -482,6 +486,7 @@ always @(posedge clk_50) begin
                end else begin
                   resp_type <= RESP_R1;
                   block_read_addr <= cmd_in_arg_blockaddr;
+                  block_read_byteaddr <= cmd_in_arg_byteaddr;
                   block_read_num <= 32'hFFFFFFFF;
                   data_op_send_block_queue <= 1;
                   card_state_next <= CARD_DATA;
@@ -495,6 +500,7 @@ always @(posedge clk_50) begin
                end else begin
                   resp_type <= RESP_R1;
                   block_write_addr <= cmd_in_arg_blockaddr;
+                  block_write_byteaddr <= cmd_in_arg_byteaddr;
                   block_write_num <= 1;
                   card_blocks_written <= 0;
                   data_op_recv_block <= 1;
@@ -509,6 +515,7 @@ always @(posedge clk_50) begin
                end else begin
                   resp_type <= RESP_R1;
                   block_write_addr <= cmd_in_arg_blockaddr;
+                  block_write_byteaddr <= cmd_in_arg_byteaddr;
                   block_write_num <= 32'hFFFFFFFF;
                   card_blocks_written <= 0;
                   data_op_recv_block <= 1;
@@ -923,6 +930,7 @@ always @(posedge clk_50) begin
                card_state <= card_state;
                block_read_addr <= block_read_addr + 1'b1;
                block_read_num <= block_read_num - 1'b1; 
+               block_read_byteaddr <= block_read_byteaddr + 512;
                if(block_read_addr >= SD_TOTAL_BLOCKS) begin 
                   card_status[STAT_OUT_OF_RANGE] <= 1'b1; 
                   err_op_out_range <= 1; 
@@ -993,6 +1001,7 @@ always @(posedge clk_50) begin
          card_status[STAT_READY_FOR_DATA] <= 1'b1;
          block_write_addr <= block_write_addr + 1'b1; 
          block_write_num <= block_write_num - 1'b1; 
+         block_write_byteaddr <= block_write_byteaddr + 512;
          if(block_write_addr >= SD_TOTAL_BLOCKS) begin 
             card_status[STAT_OUT_OF_RANGE] <= 1'b1; 
             err_op_out_range <= 1; 

@@ -50,10 +50,12 @@ class SDEmulator(Module, AutoCSR):
         # Current data operation
         self._read_act = CSRStatus()
         self._read_addr = CSRStatus(32)
+        self._read_byteaddr = CSRStatus(32)
         self._read_num = CSRStatus(32)
         self._read_stop = CSRStatus()
         self._write_act = CSRStatus()
         self._write_addr = CSRStatus(32)
+        self._write_byteaddr = CSRStatus(32)
         self._write_num = CSRStatus(32)
         self._preerase_num = CSRStatus(23)
         self._erase_start = CSRStatus(32)
@@ -61,10 +63,12 @@ class SDEmulator(Module, AutoCSR):
         self.comb += [
             self._read_act.status.eq(self.ll.block_read_act),
             self._read_addr.status.eq(self.ll.block_read_addr),
+            self._read_byteaddr.status.eq(self.ll.block_read_byteaddr),
             self._read_num.status.eq(self.ll.block_read_num),
             self._read_stop.status.eq(self.ll.block_read_stop),
             self._write_act.status.eq(self.ll.block_write_act),
             self._write_addr.status.eq(self.ll.block_write_addr),
+            self._write_byteaddr.status.eq(self.ll.block_write_byteaddr),
             self._write_num.status.eq(self.ll.block_write_num),
             self._preerase_num.status.eq(self.ll.block_preerase_num),
             self._erase_start.status.eq(self.ll.block_erase_start),
