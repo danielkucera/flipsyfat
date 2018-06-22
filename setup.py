@@ -27,5 +27,6 @@ setup(
     ],
     packages=find_packages(),
     install_requires=["misoc"],
+    package_data={'': ['verilog/*']},
     include_package_data=True,
 )
