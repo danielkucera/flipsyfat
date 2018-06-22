@@ -52,7 +52,7 @@ class Flipsyfat(BaseSoC):
         self.platform.add_extension(io)
 
         self.submodules.sdemu = SDEmulator(self.platform, self.platform.request("sdemu"))
-        self.register_mem("sdemu", self.mem_map["sdemu"], self.sdemu.bus, self.sdemu.mem_size)
+        self.register_mem("sdemu", self.mem_map["sdemu"], self.sdemu.mem_size, self.sdemu.bus)
         self.csr_devices += ["sdemu"]
         self.interrupt_devices += ["sdemu"]
 
