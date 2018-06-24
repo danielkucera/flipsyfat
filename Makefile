@@ -9,6 +9,9 @@ all: synth flash $(DEFAULT_SOFTWARE)
 synth:
 	flipsyfat/targets/papilio_pro.py
 
+qm:
+	flipsyfat/targets/qm_xc6slx16_sdram.py
+
 flash:
 	sudo papilio-prog -v -r \
 		-f misoc_flipsyfat_papilio_pro/gateware/top.bit \
