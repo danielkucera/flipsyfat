@@ -19,4 +19,4 @@ $(SOFTWARES):
 	make -C $@ load
 
 clean:
-	rm -Rf misoc_flipsyfat_papilio_pro
+	rm -Rf misoc_flipsyfat_*
