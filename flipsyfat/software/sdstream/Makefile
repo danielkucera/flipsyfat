@@ -1,6 +1,6 @@
 include ../common.mak
 
-OBJECTS = main.o $(COMMON)/sdemu.o $(COMMON)/fat.o $(COMMON)/isr.o
+OBJECTS = main.o $(COMMON)/sdemu.o $(COMMON)/isr.o
 APP = sdstream
 
 all: $(APP).bin
