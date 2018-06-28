@@ -10,7 +10,7 @@ synth:
 	flipsyfat/targets/papilio_pro.py
 
 qm:
-	flipsyfat/targets/qm_xc6slx16_sdram.py
+	flipsyfat/targets/qm_xc6slx16_sdram.py --output-dir $(shell pwd)/build
 
 flash:
 	sudo papilio-prog -v -r \
