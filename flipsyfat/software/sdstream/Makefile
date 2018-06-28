@@ -3,7 +3,7 @@ include ../common.mak
 OBJECTS = main.o $(COMMON)/sdemu.o $(COMMON)/isr.o
 APP = sdstream
 
-all: $(APP).bin
+all:: $(APP).bin
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
